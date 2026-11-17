@@ -73,16 +73,19 @@ const fs = require("fs");
 const css = fs.readFileSync(__dirname + "/style.css", "utf8");
 const app = fs.readFileSync(__dirname + "/app.js", "utf8");
 const html = fs.readFileSync(__dirname + "/index.html", "utf8");
-// Keep the look clearly different from the SAT vocab app.
-["#E0E6D4","#f6f1e7","#fffdf8","#cfe3f3","--sage:"].forEach(tok => {
-  assert.ok(!css.includes(tok), "SAT palette token still in CSS: " + tok);
+// Keep the look clearly different from the SAT vocab app and the old dark theme.
+["#E0E6D4", "#f6f1e7", "#fffdf8", "#cfe3f3", "--sage:", "#0c0d12", "#12141c"].forEach(tok => {
+  assert.ok(!css.includes(tok), "forbidden palette token still in CSS: " + tok);
 });
-assert.ok(/Syne/.test(css) && /IBM Plex Sans/.test(css), "expected new display/body fonts");
-assert.ok(/#0c0d12/.test(css) && /#ff5d2e/.test(css), "expected dark background and bold accent");
+assert.ok(/Fraunces/.test(css) && /Nunito/.test(css), "expected Fraunces + Nunito");
+assert.ok(/#F3DFC8/.test(css) && /#FFF1A8/.test(css) && /#EE4E16/.test(css), "expected beige, butter yellow, tangerine");
 assert.ok(app.includes('const SKEY = "usefulFacts.v1"'), "must keep the same progress key");
 assert.ok(app.includes('const SNDKEY = "usefulFacts.sound.v1"'), "must keep the same sound key");
-assert.ok(/viewBox="0 0 24 24"/.test(app) && /ring-fg/.test(app), "expected SVG icons and progress rings");
-assert.ok(/touchstart/.test(app) && /hit-r/.test(app), "expected swipe/tap fact cards");
-assert.ok(/id="home"/.test(html) && /site-head/.test(html));
+assert.ok(/class="note"/.test(app) && /board-title/.test(app), "expected corkboard sticky notes");
+assert.ok(/fact-block/.test(app) && /Did you know\?/.test(app), "expected magazine fact story");
+assert.ok(/myth-toggle/.test(app) && /Myth/.test(app), "expected myth vs fact toggle");
+assert.ok(/flip-front/.test(app) && /Stamp this/.test(app), "expected flip-and-stamp quiz, not a plain option list");
+assert.ok(/id="home"/.test(html) && /wordmark/.test(html));
+assert.ok(!/site-head/.test(html) && !/#0c0d12/.test(css));
 
 console.log("ok", LESSONS.length, "lessons", facts.length, "facts", questions.length, "questions", watches.length, "corrections");
