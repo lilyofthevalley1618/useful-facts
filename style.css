@@ -356,3 +356,21 @@ circle.hit.hl,path.geo.hl + circle.hit{stroke:var(--ink);stroke-width:1;fill:#EE
 .geo-poster h2{font-family:var(--font-display);font-style:italic;font-size:1.8rem;margin:0 0 .3rem}
 .geo-poster p{margin:0;font-weight:600;color:var(--muted)}
 .mast-bar .wordmark{margin-right:auto}
+
+.challenge-box{
+  margin-top:1.5rem;padding:1rem 1.1rem 1.15rem;border:2px dashed var(--ink);
+  background:var(--paper);box-shadow:4px 4px 0 var(--yellow-2);
+}
+.challenge-box h2{font-family:var(--font-display);font-style:italic;font-size:1.5rem;margin:0 0 .3rem}
+.challenge-box p{margin:0;font-weight:600;color:var(--muted)}
+.step-pips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 1.1rem}
+.pip{
+  border:2px solid var(--ink);background:var(--paper);color:var(--ink);
+  border-radius:999px;padding:.3rem .7rem;font-weight:700;font-size:.88rem;
+  box-shadow:2px 2px 0 var(--ink);cursor:pointer;
+}
+.pip.done{background:#D4A534}
+.pip.now{background:var(--tangerine);color:var(--paper)}
+.pip.lock{opacity:.5;cursor:default;box-shadow:none}
+.sit{font-weight:700;margin:.15rem 0 .45rem;color:var(--ink)}
+.geo-card + .geo-card{margin-top:.7rem}

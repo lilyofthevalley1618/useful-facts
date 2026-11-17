@@ -415,6 +415,7 @@
   const shot = params.get("shot");
   if (shot === "home") home();
   else if (shot === "lesson") startLesson(params.get("id") || "neuroplasticity");
+  else if (shot === "geo-step" || shot === "step") { if (window.Geo) window.Geo.open({ shot: "step", id: params.get("id") || "250" }); }
   else if (shot === "geo" || shot === "map") { if (window.Geo) window.Geo.open({ shot: shot === "map" || params.get("map") ? "map" : (params.get("us") ? "us" : "hub") }); }
   else if (prog.resume && (prog.resume.id === "daily" || LESSONS.some(l => l.id === prog.resume.id))) {
     const r = prog.resume;

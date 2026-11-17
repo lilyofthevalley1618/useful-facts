@@ -2116,6 +2116,67 @@ function geoMatchName(item, guess) {
   return geoAliases(item).some(al => al === g || al.replace(/ /g, "") === g.replace(/ /g, ""));
 }
 
-const GeoData = { WORLD: GEO_WORLD, STATES: GEO_STATES, WORLD_REGIONS: GEO_WORLD_REGIONS, STATE_REGIONS: GEO_STATE_REGIONS, norm: geoNorm, matchName: geoMatchName, aliases: geoAliases };
+
+// One-at-a-time path: ~40 well-known / large countries first, then the rest by region.
+const GEO_WORLD_MAJOR = ["840","124","484","156","643","076","036","356","826","250","276","392","818","710","032","380","724","360","566","792","410","682","616","804","300","528","372","620","752","756","554","152","604","170","404","504","231","586","764","704"];
+
+function buildWorldPath() {
+  const seen = new Set();
+  const path = [];
+  GEO_WORLD_MAJOR.forEach(id => {
+    if (GEO_WORLD.some(c => c.id === id) && !seen.has(id)) { path.push(id); seen.add(id); }
+  });
+  GEO_WORLD_REGIONS.forEach(r => {
+    GEO_WORLD.filter(c => c.region === r).forEach(c => {
+      if (!seen.has(c.id)) { path.push(c.id); seen.add(c.id); }
+    });
+  });
+  GEO_WORLD.forEach(c => { if (!seen.has(c.id)) path.push(c.id); });
+  return path;
+}
+const GEO_WORLD_PATH = buildWorldPath();
+
+// California first (Irvine). Famous / large states as singles, then nearby groups of two.
+const GEO_STATE_STEPS = [
+  ["06"],["48"],["12"],["36"],["02"],["15"],["32"],["41"],["04"],["53"],
+  ["17"],["42"],["39"],["13"],["37"],["26"],["34"],["25"],["51"],["08"],
+  ["47"],["22"],["27"],["55"],["18"],["29"],["24"],["45"],
+  ["01","28"],["21","54"],["40","05"],["35"],["49","16"],["30","56"],
+  ["38","46"],["19","31"],["20"],["23"],["33","50"],["09","44"],["10","11"]
+];
+
+// Well-known pairs that often share no land border in the atlas (seas, channels).
+const GEO_NEAR = [
+  ["826","250"],["826","372"],["036","554"],["392","410"],["392","156"],
+  ["724","504"],["208","752"],["360","036"],["300","196"],["250","056"],
+  ["380","470"],["840","124"],["840","484"],["124","484"]
+];
+
+function geoSteps(kind) {
+  if (kind === "us") return GEO_STATE_STEPS.map(step => step.slice());
+  return GEO_WORLD_PATH.map(id => [id]);
+}
+function geoStepItems(kind, index) {
+  const catalog = kind === "us" ? GEO_STATES : GEO_WORLD;
+  const step = geoSteps(kind)[index] || [];
+  return step.map(id => catalog.find(x => x.id === id)).filter(Boolean);
+}
+
+const GeoData = {
+  WORLD: GEO_WORLD,
+  STATES: GEO_STATES,
+  WORLD_REGIONS: GEO_WORLD_REGIONS,
+  STATE_REGIONS: GEO_STATE_REGIONS,
+  WORLD_MAJOR: GEO_WORLD_MAJOR,
+  WORLD_PATH: GEO_WORLD_PATH,
+  STATE_STEPS: GEO_STATE_STEPS,
+  NEAR: GEO_NEAR,
+  steps: geoSteps,
+  stepItems: geoStepItems,
+  MAJOR_COUNT: GEO_WORLD_MAJOR.length,
+  norm: geoNorm,
+  matchName: geoMatchName,
+  aliases: geoAliases
+};
 if (typeof module !== "undefined") module.exports = GeoData;
 else window.GeoData = GeoData;

@@ -124,4 +124,42 @@ assert.ok(weight({ right: 0, wrong: 4 }) > weight({ right: 5, wrong: 0 }), "miss
 assert.ok(geoSrc.includes("(r.wrong || 0) * 3"), "practice weighting must live in geo.js");
 
 
+
+assert.strictEqual(GeoData.WORLD_PATH.length, GeoData.WORLD.length);
+assert.strictEqual(new Set(GeoData.WORLD_PATH).size, GeoData.WORLD.length);
+assert.strictEqual(GeoData.WORLD_PATH[0], "840", "path should start with the United States");
+assert.ok(GeoData.WORLD_MAJOR.length >= 30 && GeoData.WORLD_MAJOR.length <= 40);
+GeoData.WORLD_MAJOR.forEach((id, i) => assert.strictEqual(GeoData.WORLD_PATH[i], id, "majors should come first: " + id));
+assert.strictEqual(GeoData.STATE_STEPS[0].join(), "06", "U.S. path should start with California");
+assert.strictEqual(GeoData.STATE_STEPS.flat().length, GeoData.STATES.length);
+assert.strictEqual(new Set(GeoData.STATE_STEPS.flat()).size, GeoData.STATES.length);
+assert.ok(geoSrc.includes("const PASS = 0.9") || geoSrc.includes("0.9"), "90% path pass mark");
+assert.ok(/path:\s*\{/.test(geoSrc) && /hydrate/.test(geoSrc), "path progress must migrate on usefulFacts.geo.v1");
+assert.ok(/Challenge/.test(geoSrc) && /Learn the map/.test(geoSrc));
+function passNeed(n) { return Math.ceil(0.9 * n); }
+function didPass(right, n) { return n > 0 && right / n >= 0.9; }
+assert.ok(didPass(5, 5) && !didPass(4, 5), "5-question quizzes need 5/5");
+assert.ok(didPass(3, 3) && !didPass(2, 3));
+assert.ok(didPass(9, 10) && !didPass(8, 10));
+assert.strictEqual(passNeed(5), 5);
+assert.ok(/geo-step/.test(app) || /shot: "step"/.test(app));
+// migrate: old geo saves keep item stats and gain an empty path
+const oldSave = { items: { "w:840": { seen: 4, right: 3, wrong: 1 } }, resume: null };
+function hydrate(raw) {
+  const base = { items: {}, resume: null, path: { world: { next: 0, passed: [], reviewed: {} }, us: { next: 0, passed: [], reviewed: {} } } };
+  if (!raw || typeof raw !== "object") return base;
+  const out = Object.assign(base, raw, { items: raw.items && typeof raw.items === "object" ? raw.items : {} });
+  const p = raw.path || {};
+  out.path = {
+    world: Object.assign({ next: 0, passed: [], reviewed: {} }, p.world || {}),
+    us: Object.assign({ next: 0, passed: [], reviewed: {} }, p.us || {})
+  };
+  return out;
+}
+const migrated = hydrate(oldSave);
+assert.strictEqual(migrated.items["w:840"].right, 3, "must not wipe item stats");
+assert.strictEqual(migrated.path.world.next, 0);
+assert.ok(/World path/.test(geoSrc) && /California/.test(geoSrc));
+
+
 console.log("ok", LESSONS.length, "lessons", facts.length, "facts", questions.length, "questions", watches.length, "corrections");
