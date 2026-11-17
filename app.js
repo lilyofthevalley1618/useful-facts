@@ -87,6 +87,7 @@
   }
 
   function home() {
+    if (window.Geo && window.Geo.setTab) window.Geo.setTab("lessons");
     prog.resume = null; save(); clearObs();
     const s = stats();
     const notes = LESSONS.map((l, i) => {
@@ -383,7 +384,9 @@
       </section>`;
     $("#h").onclick = home;
     $("#ex").onclick = () => {
-      const blob = new Blob([JSON.stringify({ kind: "usefulFacts.v1", saved: new Date().toISOString(), progress: prog }, null, 2)], { type: "application/json" });
+      const payload = { kind: "usefulFacts.v1", saved: new Date().toISOString(), progress: prog };
+      if (window.Geo && window.Geo.exportState) payload.geo = window.Geo.exportState();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
       a.download = `useful-facts-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
     };
@@ -394,18 +397,25 @@
         if (!next || typeof next !== "object") throw new Error("This file is not a Useful Facts backup.");
         prog = Object.assign(blank(), next, { lessons: next.lessons || {} });
         save();
-        $("#msg").textContent = "Restored lesson progress and scores.";
+        if (data.geo && window.Geo && window.Geo.importState) window.Geo.importState(data.geo);
+        $("#msg").textContent = data.geo ? "Restored lesson progress, scores, and geography practice." : "Restored lesson progress and scores.";
       } catch (err) { $("#msg").textContent = "Could not restore: " + err.message; }
     };
   }
 
   $("#home").onclick = e => { e.preventDefault(); home(); };
+  const tabL = document.getElementById("tab-lessons");
+  const tabG = document.getElementById("tab-geo");
+  if (tabL) tabL.onclick = () => home();
+  if (tabG) tabG.onclick = () => { if (window.Geo) window.Geo.open(); };
+  window.UF = { ding, soundBtn, esc, shuffle, advanceClickOk };
 
   // Screenshot / deep-link hooks. Do not steal a real in-progress session unless asked.
   const params = new URLSearchParams(location.search);
   const shot = params.get("shot");
   if (shot === "home") home();
   else if (shot === "lesson") startLesson(params.get("id") || "neuroplasticity");
+  else if (shot === "geo" || shot === "map") { if (window.Geo) window.Geo.open({ shot: shot === "map" || params.get("map") ? "map" : (params.get("us") ? "us" : "hub") }); }
   else if (prog.resume && (prog.resume.id === "daily" || LESSONS.some(l => l.id === prog.resume.id))) {
     const r = prog.resume;
     if (r.id === "daily" && r.order) showDaily(r);

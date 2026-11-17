@@ -88,4 +88,40 @@ assert.ok(/flip-front/.test(app) && /Stamp this/.test(app), "expected flip-and-s
 assert.ok(/id="home"/.test(html) && /wordmark/.test(html));
 assert.ok(!/site-head/.test(html) && !/#0c0d12/.test(css));
 
+
+const GeoData = require("./geo-data.js");
+const worldTopo = JSON.parse(fs.readFileSync(__dirname + "/data/countries-50m.json", "utf8"));
+const usTopo = JSON.parse(fs.readFileSync(__dirname + "/data/states-10m.json", "utf8"));
+const wids = new Set(worldTopo.objects.countries.geometries.map(g => g.id));
+const wnames = new Set(worldTopo.objects.countries.geometries.map(g => g.properties && g.properties.name));
+assert.ok(GeoData.WORLD.length >= 190, "expected a full country list, got " + GeoData.WORLD.length);
+assert.ok(GeoData.STATES.filter(s => s.id !== "11").length === 50, "expected 50 states");
+assert.ok(GeoData.STATES.some(s => s.id === "11" && /Columbia/.test(s.name)), "include D.C.");
+GeoData.WORLD.forEach(c => {
+  assert.ok(c.name && c.capital && c.region && c.fact, "incomplete country " + c.id);
+  if (c.id === "Kosovo") assert.ok(wnames.has("Kosovo"), "Kosovo missing from map");
+  else assert.ok(wids.has(c.id), "country not in Natural Earth map: " + c.id + " " + c.name);
+});
+GeoData.STATES.forEach(s => {
+  assert.ok(s.name && s.capital && s.region && s.fact, "incomplete state " + s.id);
+  assert.ok(usTopo.objects.states.geometries.some(g => g.id === s.id), "state not in Census map: " + s.name);
+});
+assert.ok(GeoData.matchName(GeoData.WORLD.find(c => c.id === "840"), "USA"));
+assert.ok(GeoData.matchName(GeoData.WORLD.find(c => c.id === "826"), "UK"));
+assert.ok(GeoData.matchName(GeoData.WORLD.find(c => c.id === "203"), "Czech Republic"));
+assert.ok(!GeoData.matchName(GeoData.WORLD.find(c => c.id === "840"), "Canada"));
+const geoSrc = fs.readFileSync(__dirname + "/app.js", "utf8") + fs.readFileSync(__dirname + "/geo.js", "utf8");
+assert.ok(geoSrc.includes('usefulFacts.geo.v1'), "geography must use its own storage key");
+assert.ok(geoSrc.includes('const SKEY = "usefulFacts.v1"'), "must keep the lesson progress key");
+assert.ok(/payload\.geo|data\.geo/.test(geoSrc), "backup/restore must include geography");
+assert.ok(/Find it/.test(geoSrc) && /Name it/.test(geoSrc) && /Learn the map/.test(geoSrc));
+assert.ok(/countries-50m\.json/.test(geoSrc) && /states-10m\.json/.test(geoSrc));
+assert.ok(fs.existsSync(__dirname + "/vendor/geo-lib.js"));
+assert.ok(fs.existsSync(__dirname + "/data/ATTRIBUTION.md"));
+assert.ok(/tab-geo/.test(html) && /map-frame/.test(css) && /#D4A534/.test(css));
+function weight(r) { r = r || { seen: 0, right: 0, wrong: 0 }; return 1 + (r.wrong || 0) * 3 + ((r.right || 0) === 0 ? 2 : 0) + Math.max(0, 2 - (r.right || 0)); }
+assert.ok(weight({ right: 0, wrong: 4 }) > weight({ right: 5, wrong: 0 }), "misses should be weighted more");
+assert.ok(geoSrc.includes("(r.wrong || 0) * 3"), "practice weighting must live in geo.js");
+
+
 console.log("ok", LESSONS.length, "lessons", facts.length, "facts", questions.length, "questions", watches.length, "corrections");
