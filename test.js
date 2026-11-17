@@ -68,4 +68,21 @@ assert.strictEqual(advanceClickOk({ tagName: "A" }), false);
 assert.strictEqual(advanceClickOk({ tagName: "DIV" }), true);
 assert.strictEqual(advanceClickOk({ tagName: "BUTTON", disabled: true }), true);
 
+
+const fs = require("fs");
+const css = fs.readFileSync(__dirname + "/style.css", "utf8");
+const app = fs.readFileSync(__dirname + "/app.js", "utf8");
+const html = fs.readFileSync(__dirname + "/index.html", "utf8");
+// Keep the look clearly different from the SAT vocab app.
+["#E0E6D4","#f6f1e7","#fffdf8","#cfe3f3","--sage:"].forEach(tok => {
+  assert.ok(!css.includes(tok), "SAT palette token still in CSS: " + tok);
+});
+assert.ok(/Syne/.test(css) && /IBM Plex Sans/.test(css), "expected new display/body fonts");
+assert.ok(/#0c0d12/.test(css) && /#ff5d2e/.test(css), "expected dark background and bold accent");
+assert.ok(app.includes('const SKEY = "usefulFacts.v1"'), "must keep the same progress key");
+assert.ok(app.includes('const SNDKEY = "usefulFacts.sound.v1"'), "must keep the same sound key");
+assert.ok(/viewBox="0 0 24 24"/.test(app) && /ring-fg/.test(app), "expected SVG icons and progress rings");
+assert.ok(/touchstart/.test(app) && /hit-r/.test(app), "expected swipe/tap fact cards");
+assert.ok(/id="home"/.test(html) && /site-head/.test(html));
+
 console.log("ok", LESSONS.length, "lessons", facts.length, "facts", questions.length, "questions", watches.length, "corrections");
