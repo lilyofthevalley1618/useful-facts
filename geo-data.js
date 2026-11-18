@@ -2152,6 +2152,48 @@ const GEO_NEAR = [
   ["380","470"],["840","124"],["840","484"],["124","484"]
 ];
 
+const GEO_CONTINENTS = [
+  { id: "na", name: "North America", kind: "world", blurb: "Canada, the United States, Mexico, Central America, and the Caribbean.", regions: ["North America", "Central America & Caribbean"] },
+  { id: "sa", name: "South America", kind: "world", blurb: "Twelve countries from the Caribbean coast to Cape Horn.", regions: ["South America"] },
+  { id: "eu", name: "Europe", kind: "world", blurb: "From Iceland and Portugal across to Russia.", regions: ["Europe"] },
+  { id: "af", name: "Africa", kind: "world", blurb: "Fifty-four countries, from Morocco and Egypt to South Africa.", regions: ["Africa"] },
+  { id: "as", name: "Asia", kind: "world", blurb: "The Middle East and the Caucasus, then east across the continent to Japan.", regions: ["Asia", "Middle East & Caucasus"] },
+  { id: "oc", name: "Oceania", kind: "world", blurb: "Australia, New Zealand, and the Pacific island countries.", regions: ["Oceania"] },
+  { id: "us", name: "U.S. States", kind: "us", blurb: "The 50 states and Washington, D.C., as their own path.", regions: null }
+];
+
+function geoContinentOf(item, kind) {
+  if (kind === "us") return "us";
+  if (!item) return null;
+  const hit = GEO_CONTINENTS.find(c => c.kind === "world" && c.regions && c.regions.includes(item.region));
+  return hit ? hit.id : null;
+}
+
+function geoContinentItems(cid) {
+  const c = GEO_CONTINENTS.find(x => x.id === cid);
+  if (!c) return [];
+  if (c.kind === "us") return GEO_STATES.slice();
+  return GEO_WORLD.filter(x => c.regions.includes(x.region));
+}
+
+function geoContinentPath(cid) {
+  const c = GEO_CONTINENTS.find(x => x.id === cid);
+  if (!c) return [];
+  if (c.kind === "us") return GEO_STATE_STEPS.map(step => step.slice());
+  const set = new Set(geoContinentItems(cid).map(x => x.id));
+  const lead = { na: ["840","124","484"], sa: ["076","032"], eu: ["826","250","276","380","724"], af: ["818","710","566"], as: ["156","356","392"], oc: ["036","554"] }[cid] || [];
+  const seen = new Set();
+  const majors = [];
+  lead.concat(GEO_WORLD_MAJOR).forEach(id => {
+    if (set.has(id) && !seen.has(id)) { majors.push(id); seen.add(id); }
+  });
+  const rest = GEO_WORLD_PATH.filter(id => set.has(id) && !seen.has(id));
+  return majors.concat(rest).map(id => [id]);
+}
+
+const GEO_CONTINENT_PATHS = {};
+GEO_CONTINENTS.forEach(c => { GEO_CONTINENT_PATHS[c.id] = geoContinentPath(c.id); });
+
 function geoSteps(kind) {
   if (kind === "us") return GEO_STATE_STEPS.map(step => step.slice());
   return GEO_WORLD_PATH.map(id => [id]);
@@ -2167,12 +2209,20 @@ const GeoData = {
   STATES: GEO_STATES,
   WORLD_REGIONS: GEO_WORLD_REGIONS,
   STATE_REGIONS: GEO_STATE_REGIONS,
+  CONTINENTS: GEO_CONTINENTS,
   WORLD_MAJOR: GEO_WORLD_MAJOR,
   WORLD_PATH: GEO_WORLD_PATH,
   STATE_STEPS: GEO_STATE_STEPS,
   NEAR: GEO_NEAR,
   steps: geoSteps,
   stepItems: geoStepItems,
+  continentPath: (cid) => (GEO_CONTINENT_PATHS[cid] || []).map(step => step.slice()),
+  continentItems: geoContinentItems,
+  continentOf: geoContinentOf,
+  continentOfId: (kind, id) => {
+    const cat = kind === "us" ? GEO_STATES : GEO_WORLD;
+    return geoContinentOf(cat.find(x => x.id === id), kind);
+  },
   MAJOR_COUNT: GEO_WORLD_MAJOR.length,
   norm: geoNorm,
   matchName: geoMatchName,

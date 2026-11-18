@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node test.js
-      - run: mkdir _site && cp index.html style.css app.js facts.js geo.js geo-data.js favicon.ico icon-32.png icon-192.png icon-512.png apple-touch-icon.png _site/ && cp -r data vendor _site/ && sed -i "s/__V__/${GITHUB_SHA::12}/g" _site/index.html && echo -n "${GITHUB_SHA::12}" > _site/version.txt
+      - run: mkdir _site && cp index.html style.css app.js facts.js geo.js geo-data.js mystery.js mystery-data.js favicon.ico icon-32.png icon-192.png icon-512.png apple-touch-icon.png _site/ && cp -r data vendor _site/ && sed -i "s/__V__/${GITHUB_SHA::12}/g" _site/index.html && echo -n "${GITHUB_SHA::12}" > _site/version.txt
       - uses: actions/upload-pages-artifact@v3
       - id: d
         uses: actions/deploy-pages@v4

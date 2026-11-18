@@ -10,29 +10,67 @@
   const $ = (s, el = document) => el.querySelector(s);
   const app = () => document.getElementById("app");
 
+  const blankPath = () => ({ next: 0, passed: [], reviewed: {} });
   const blank = () => ({
     items: {},
     resume: null,
     path: {
-      world: { next: 0, passed: [], reviewed: {} },
-      us: { next: 0, passed: [], reviewed: {} }
-    }
+      world: blankPath(),
+      us: blankPath(),
+      regions: {}
+    },
+    tests: {}
   });
+  function ensurePath(p) {
+    const o = Object.assign(blankPath(), p || {});
+    if (typeof o.next !== "number" || o.next < 0) o.next = 0;
+    if (!Array.isArray(o.passed)) o.passed = [];
+    if (!o.reviewed || typeof o.reviewed !== "object") o.reviewed = {};
+    return o;
+  }
+  function migrateRegions(out, savedRegions) {
+    const list = (GD().CONTINENTS || []);
+    const regions = {};
+    list.forEach(c => {
+      const saved = savedRegions && savedRegions[c.id];
+      regions[c.id] = ensurePath(saved || (c.id === "us" && out.path ? out.path.us : null));
+    });
+    const any = list.some(c => regions[c.id] && regions[c.id].next > 0);
+    if (!any && out.path && out.path.world && out.path.world.next > 0 && GD().stepItems) {
+      const learned = new Set();
+      for (let i = 0; i < out.path.world.next; i++) {
+        (GD().stepItems("world", i) || []).forEach(it => learned.add(it.id));
+      }
+      list.filter(c => c.id !== "us").forEach(c => {
+        const steps = GD().continentPath ? GD().continentPath(c.id) : [];
+        let next = 0;
+        const passed = [];
+        for (let i = 0; i < steps.length; i++) {
+          const ids = steps[i] || [];
+          if (ids.length && ids.every(id => learned.has(id))) { passed.push(i); next = i + 1; }
+          else break;
+        }
+        regions[c.id] = ensurePath({ next, passed, reviewed: {} });
+      });
+    }
+    if (out.path && out.path.us && (out.path.us.next || 0) > (regions.us && regions.us.next || 0)) {
+      regions.us = ensurePath(out.path.us);
+    }
+    return regions;
+  }
   function hydrate(raw) {
     const base = blank();
     if (!raw || typeof raw !== "object") return base;
     const out = Object.assign(base, raw, { items: raw.items && typeof raw.items === "object" ? raw.items : {} });
     const p = raw.path || {};
     out.path = {
-      world: Object.assign({ next: 0, passed: [], reviewed: {} }, p.world || {}),
-      us: Object.assign({ next: 0, passed: [], reviewed: {} }, p.us || {})
+      world: ensurePath(p.world),
+      us: ensurePath(p.us),
+      regions: {}
     };
-    if (typeof out.path.world.next !== "number" || out.path.world.next < 0) out.path.world.next = 0;
-    if (typeof out.path.us.next !== "number" || out.path.us.next < 0) out.path.us.next = 0;
-    if (!Array.isArray(out.path.world.passed)) out.path.world.passed = [];
-    if (!Array.isArray(out.path.us.passed)) out.path.us.passed = [];
-    if (!out.path.world.reviewed || typeof out.path.world.reviewed !== "object") out.path.world.reviewed = {};
-    if (!out.path.us.reviewed || typeof out.path.us.reviewed !== "object") out.path.us.reviewed = {};
+    out.path.regions = migrateRegions(out, p.regions);
+    if (out.path.regions.us) out.path.us = out.path.regions.us;
+    out.tests = (raw.tests && typeof raw.tests === "object") ? raw.tests : {};
     return out;
   }
   let geo = blank();
@@ -77,28 +115,85 @@
     const k = items.filter(it => known(rec(kind, it.id))).length;
     return { known: k, total: items.length };
   }
-  function pathRec(kind) {
+  function kindOf(cid) { return cid === "us" ? "us" : "world"; }
+  function pathRec(cid) {
     if (!geo.path) geo.path = blank().path;
-    const key = kind === "us" ? "us" : "world";
-    if (!geo.path[key]) geo.path[key] = { next: 0, passed: [], reviewed: {} };
-    const p = geo.path[key];
-    if (typeof p.next !== "number" || p.next < 0) p.next = 0;
-    if (!Array.isArray(p.passed)) p.passed = [];
-    if (!p.reviewed || typeof p.reviewed !== "object") p.reviewed = {};
+    if (cid === "world") {
+      geo.path.world = ensurePath(geo.path.world);
+      return geo.path.world;
+    }
+    if (!geo.path.regions) geo.path.regions = migrateRegions(geo, geo.path.regions);
+    if (!geo.path.regions[cid]) geo.path.regions[cid] = ensurePath(cid === "us" ? geo.path.us : null);
+    const p = ensurePath(geo.path.regions[cid]);
+    geo.path.regions[cid] = p;
+    if (cid === "us") geo.path.us = p;
     return p;
   }
   function passNeed(n) { return Math.ceil(PASS * n); }
   function didPass(right, n) { return n > 0 && right / n >= PASS; }
-  function stepCount(kind) { return GD().steps(kind).length; }
-  function itemsInSteps(kind, from, to) {
+  function stepList(cid) {
+    if (cid === "world") return GD().steps("world");
+    return (GD().continentPath && GD().continentPath(cid)) || [];
+  }
+  function stepCount(cid) { return stepList(cid).length; }
+  function stepItemsCid(cid, index) {
+    if (cid === "world") return GD().stepItems("world", index);
+    const kind = kindOf(cid);
+    const cat = kind === "us" ? GD().STATES : GD().WORLD;
+    const step = stepList(cid)[index] || [];
+    return step.map(id => cat.find(x => x.id === id)).filter(Boolean);
+  }
+  function itemsInSteps(cid, from, to) {
     const out = [];
     const seen = new Set();
     for (let i = from; i < to; i++) {
-      GD().stepItems(kind, i).forEach(it => {
+      stepItemsCid(cid, i).forEach(it => {
         if (!seen.has(it.id)) { seen.add(it.id); out.push(it); }
       });
     }
     return out;
+  }
+  function passedSteps(cid) {
+    const p = pathRec(cid);
+    return Math.max(p.next || 0, (p.passed || []).length);
+  }
+  function testRec(cid) {
+    if (!geo.tests) geo.tests = {};
+    if (!geo.tests[cid]) geo.tests[cid] = { last: null, best: null };
+    return geo.tests[cid];
+  }
+  function testPassed(cid) {
+    const best = testRec(cid).best;
+    return !!(best && best.n && didPass(best.right, best.n));
+  }
+  function continentItems(cid) {
+    return (GD().continentItems && GD().continentItems(cid)) || [];
+  }
+  function continentName(cid) {
+    const c = (GD().CONTINENTS || []).find(x => x.id === cid);
+    return c ? c.name : cid;
+  }
+  function clampViewBox(vb, W, H, zMax) {
+    const minW = W / zMax, maxW = W;
+    let w = Math.max(minW, Math.min(maxW, vb.w));
+    if (!Number.isFinite(w) || w <= 0) w = W;
+    const h = w * (H / W);
+    const x = Math.max(0, Math.min(Math.max(0, W - w), vb.x));
+    const y = Math.max(0, Math.min(Math.max(0, H - h), vb.y));
+    return { x, y, w, h };
+  }
+  function attachMysteryToast(added) {
+    if (!added || !added.length || !window.Mystery || !window.Mystery.toast) return;
+    const t = window.Mystery.toast(added);
+    if (!t) return;
+    const wrap = document.createElement("div");
+    wrap.innerHTML = t.html;
+    const el = wrap.firstElementChild;
+    if (el) { app().appendChild(el); t.bind(); }
+  }
+  function afterGeoProgress() {
+    if (window.Mystery && window.Mystery.sync) return window.Mystery.sync() || [];
+    return [];
   }
   function namesOf(items) {
     if (!items.length) return "";
@@ -281,161 +376,166 @@
   }
 
   function setTab(which) {
-    const les = document.getElementById("tab-lessons");
-    const g = document.getElementById("tab-geo");
-    if (les) les.classList.toggle("on", which === "lessons");
-    if (g) g.classList.toggle("on", which === "geo");
+    const ids = { lessons: "tab-lessons", geo: "tab-geo", mystery: "tab-mystery" };
+    Object.keys(ids).forEach(k => {
+      const el = document.getElementById(ids[k]);
+      if (el) el.classList.toggle("on", which === k);
+    });
   }
 
   function open(opts) {
     setTab("geo");
     const shot = opts && opts.shot;
-    if (shot === "map") return startLearn("world", "All", { shot: true });
-    if (shot === "us") return startLearn("us", "All", { shot: true });
+    if (shot === "map") return startLearn("eu", { shot: true });
+    if (shot === "us") return startLearn("us", { shot: true });
+    if (shot === "test") return startRegionTest(opts.cid || "eu", { shot: true, preview: opts.id || "250" });
     if (shot === "step") {
       const id = (opts && opts.id) || "250";
-      const steps = GD().steps("world");
+      const cid = (GD().continentOfId && GD().continentOfId("world", id)) || "eu";
+      const steps = stepList(cid);
       let idx = steps.findIndex(s => s.includes(id));
       if (idx < 0) idx = 0;
-      return startPathLesson("world", idx, { shot: true });
+      return startPathLesson(cid, idx, { shot: true });
     }
+    if (shot === "region") return regionHome(opts.cid || "eu");
     hub();
+  }
+
+  function testLine(cid) {
+    const t = testRec(cid);
+    if (t.best && t.best.n) return `Best test ${t.best.pct}% (${t.best.right}/${t.best.n}).`;
+    if (t.last && t.last.n) return `Last test ${t.last.pct}%.`;
+    return "No test yet — you can take one anytime.";
+  }
+  function pathLine(cid) {
+    const p = pathRec(cid);
+    const total = stepCount(cid);
+    const nextItems = stepItemsCid(cid, Math.min(p.next, Math.max(0, total - 1)));
+    if (p.next >= total) return `All ${total} steps unlocked.`;
+    if (p.next === 0) return `Start with ${namesOf(nextItems)}. 0 of ${total} steps unlocked.`;
+    return `Next: ${namesOf(nextItems)}. ${p.next} of ${total} steps unlocked.`;
   }
 
   function hub() {
     setTab("geo");
     advanceFn = null;
-    const w = pathRec("world");
-    const u = pathRec("us");
-    const wSteps = stepCount("world");
-    const uSteps = stepCount("us");
-    const wNext = GD().stepItems("world", Math.min(w.next, wSteps - 1));
-    const uNext = GD().stepItems("us", Math.min(u.next, uSteps - 1));
-    const wDone = w.next >= wSteps;
-    const uDone = u.next >= uSteps;
-    const wLine = wDone
-      ? `All ${wSteps} steps unlocked.`
-      : (w.next === 0
-        ? `Start with the ${placeWord("world", 1)} you already live in: ${theName(namesOf(wNext))}.`
-        : `Next: ${namesOf(wNext)}. ${w.next} of ${wSteps} steps unlocked.`);
-    const uLine = uDone
-      ? `All ${uSteps} steps unlocked.`
-      : (u.next === 0
-        ? `Start with California, since that’s home.`
-        : `Next: ${namesOf(uNext)}. ${u.next} of ${uSteps} steps unlocked.`);
+    const cards = (GD().CONTINENTS || []).map(c => {
+      const us = c.id === "us" ? " us-choice" : "";
+      return `<button class="geo-poster${us}" data-cid="${esc(c.id)}">
+        <p class="kicker" style="justify-content:flex-start;margin:0 0 .25rem">${c.id === "us" ? "Separate path" : "Continent"}</p>
+        <h2>${esc(c.name)}</h2>
+        <p>${esc(c.blurb)}</p>
+        <p style="margin-top:.45rem">${esc(pathLine(c.id))} ${esc(testLine(c.id))}</p>
+      </button>`;
+    }).join("");
     app().innerHTML = `
       <section class="cover">
         <p class="kicker">A practice atlas</p>
         <h1>Geography</h1>
-        <p class="cover-lead">Learn one major country at a time, starting with the biggest and best-known, on a zoomed-in map. A short quiz at 90% unlocks the next. The same idea, starting with California, for U.S. states.</p>
+        <p class="cover-lead">Pick any region to start. Every continent and U.S. States are open from the beginning. Inside a region, learn one well-known place at a time on a map fitted to that region; a short quiz at 90% unlocks the next. You can also take a test of the whole region whenever you like.</p>
       </section>
-      <div class="geo-hub-grid">
-        <button class="geo-poster" id="go-world">
-          <h2>World path</h2>
-          <p>${esc(wLine)}</p>
-        </button>
-        <button class="geo-poster" id="go-us">
-          <h2>U.S. path</h2>
-          <p>${esc(uLine)}</p>
-        </button>
-      </div>
-      <div class="challenge-box">
-        <h2>Challenge</h2>
-        <p>Want to try a bigger set at once? Find it and Name it are still here, by region, with no passing score — just practice.</p>
-        <div class="actions" style="margin-top:.7rem">
-          <button class="alt" id="ch-world">World challenge</button>
-          <button class="alt" id="ch-us">U.S. challenge</button>
-        </div>
-      </div>
-      <p class="muted" style="margin-top:1.2rem">Maps are from Natural Earth (public domain) and the U.S. Census Bureau, bundled here via world-atlas and us-atlas. Made with Natural Earth.</p>`;
-    $("#go-world").onclick = () => pathHome("world");
-    $("#go-us").onclick = () => pathHome("us");
-    $("#ch-world").onclick = () => challengeHome("world");
-    $("#ch-us").onclick = () => challengeHome("us");
+      <div class="geo-hub-grid geo-hub-7">${cards}</div>
+      <p class="muted" style="margin-top:1.2rem">Good work here also opens folders in the Mystery tab. Maps are from Natural Earth (public domain) and the U.S. Census Bureau, bundled here via world-atlas and us-atlas. Made with Natural Earth.</p>`;
+    app().querySelectorAll(".geo-poster").forEach(b => b.onclick = () => regionHome(b.dataset.cid));
   }
 
-  function pathHome(kind) {
+  function regionHome(cid) {
     setTab("geo");
     advanceFn = null;
-    const p = pathRec(kind);
-    const total = stepCount(kind);
-    const title = kind === "us" ? "U.S. states" : "World countries";
-    const nextIdx = Math.min(p.next, total - 1);
-    const nextItems = GD().stepItems(kind, nextIdx);
+    const kind = kindOf(cid);
+    const p = pathRec(cid);
+    const total = stepCount(cid);
+    const title = continentName(cid);
+    const nextIdx = Math.min(p.next, Math.max(0, total - 1));
+    const nextItems = stepItemsCid(cid, nextIdx);
     const done = p.next >= total;
-    const majorN = kind === "us" ? 20 : (GD().MAJOR_COUNT || 40);
-    const majorNote = kind === "us"
-      ? "California comes first, then other well-known states. Later steps group a couple of smaller neighbors."
-      : `The first ${majorN} are the big, well-known countries; smaller ones come after, still one at a time.`;
+    const loc = kind === "us" ? "states" : "countries";
+    const nItems = continentItems(cid).length;
     const startLabel = done ? "Review a step" : (p.next === 0 ? "Start this step" : "Continue");
     const head = done
       ? `You’ve unlocked every step.`
       : `Step ${p.next + 1} of ${total}: ${namesOf(nextItems)}`;
-    const windowStart = Math.max(0, Math.min(p.next, total - 1) - 3);
+    const windowStart = Math.max(0, Math.min(p.next, Math.max(0, total - 1)) - 3);
     const windowEnd = Math.min(total, windowStart + 8);
     const pips = [];
     for (let i = windowStart; i < windowEnd; i++) {
-      const items = GD().stepItems(kind, i);
+      const items = stepItemsCid(cid, i);
       const label = items.length === 1 ? items[0].name : (items[0] ? items[0].name + " +" : "Step " + (i + 1));
       const st = i < p.next ? "done" : (i === p.next ? "now" : "lock");
       pips.push(`<button type="button" class="pip ${st}" data-step="${i}" ${i > p.next ? "disabled" : ""}>${esc(label)}</button>`);
     }
+    const resumeTest = geo.resume && geo.resume.type === "test" && geo.resume.cid === cid && typeof geo.resume.i === "number";
+    const testBtn = resumeTest ? "Resume test" : "Take a test";
     app().innerHTML = `
       ${nav("")}
       <section class="cover">
-        <p class="kicker">${esc(title)} · Path</p>
+        <p class="kicker">${esc(title)} · Open from the start</p>
         <h1 style="font-size:clamp(2rem,6.5vw,3.6rem)">${esc(title)}</h1>
         <p class="cover-lead">${esc(head)}</p>
-        <p class="muted">${esc(majorNote)} Pass a 3–5 question quiz at 90% to unlock the next step. A short review of earlier places is mixed in.</p>
+        <p class="muted">The map stays fitted to ${esc(title)}. Use + and − to zoom in, and Fit to return; you cannot shrink smaller than this view. Pass a 3–5 question quiz at 90% to unlock the next step. Take a test anytime on all ${nItems} ${loc} — 90% is a high score, and your best is saved. Passing steps and tests also opens Mystery folders.</p>
+        <p class="muted">${esc(testLine(cid))}</p>
       </section>
       <div class="step-pips" id="pips">${pips.join("")}</div>
       <div class="actions">
         ${done ? "" : `<button id="go">${esc(startLabel)}</button>`}
-        <button class="alt" id="ch">Challenge mode</button>
+        <button class="alt" id="test">${esc(testBtn)}</button>
+      </div>
+      <div class="challenge-box">
+        <h2>Challenge</h2>
+        <p>Optional practice on this region’s fitted map. There is no passing score here.</p>
+        <div class="actions" style="margin-top:.7rem">
+          <button class="alt" id="learn">Learn the map</button>
+          <button class="alt" id="find">Find it</button>
+          <button class="alt" id="name">Name it</button>
+        </div>
       </div>`;
     $("#h").onclick = hub;
-    if ($("#go")) $("#go").onclick = () => beginStep(kind, p.next);
-    $("#ch").onclick = () => challengeHome(kind);
+    if ($("#go")) $("#go").onclick = () => beginStep(cid, p.next);
+    $("#test").onclick = () => startRegionTest(cid, resumeTest ? { resume: true } : {});
+    $("#learn").onclick = () => startLearn(cid);
+    $("#find").onclick = () => startPractice(cid, "find");
+    $("#name").onclick = () => startPractice(cid, "name");
     app().querySelectorAll("#pips .pip").forEach(btn => {
       btn.onclick = () => {
         const i = +btn.dataset.step;
         if (i > p.next) return;
-        startPathLesson(kind, i, { revisit: i < p.next });
+        startPathLesson(cid, i, { revisit: i < p.next });
       };
     });
   }
 
-  function reviewDue(kind) {
-    const p = pathRec(kind);
+  function reviewDue(cid) {
+    const p = pathRec(cid);
     if (p.next === 0 || p.next % 5 !== 0) return false;
-    if (p.next >= stepCount(kind) && p.reviewed[String(p.next)]) return false;
+    if (p.next >= stepCount(cid) && p.reviewed[String(p.next)]) return false;
     return !p.reviewed[String(p.next)];
   }
 
-  function beginStep(kind, index, extra) {
-    const p = pathRec(kind);
-    if (index === p.next && reviewDue(kind)) return startReview(kind);
-    return startPathLesson(kind, index, extra);
+  function beginStep(cid, index, extra) {
+    const p = pathRec(cid);
+    if (index === p.next && reviewDue(cid)) return startReview(cid);
+    return startPathLesson(cid, index, extra);
   }
 
-  async function startPathLesson(kind, index, extra) {
+  async function startPathLesson(cid, index, extra) {
     setTab("geo");
     advanceFn = null;
+    const kind = kindOf(cid);
     const shot = extra && extra.shot;
     const revisit = extra && extra.revisit;
-    const items = GD().stepItems(kind, index);
-    if (!items.length) return pathHome(kind);
+    const items = stepItemsCid(cid, index);
+    if (!items.length) return regionHome(cid);
     app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
-    $("#h").onclick = () => pathHome(kind);
+    $("#h").onclick = () => regionHome(cid);
     let topo;
     try { topo = await loadTopo(kind); }
-    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map. ${esc(err.message)}</p>`; $("#h").onclick = () => pathHome(kind); return; }
-    const learned = itemsInSteps(kind, 0, index);
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map. ${esc(err.message)}</p>`; $("#h").onclick = () => regionHome(cid); return; }
+    const learned = itemsInSteps(cid, 0, index);
     const learnedIds = learned.map(x => x.id);
     const ids = items.map(x => x.id);
-    const fit = contextIds(kind, topo, ids, learnedIds);
-    const title = kind === "us" ? "U.S. path" : "World path";
-    const total = stepCount(kind);
+    const regionIds = continentItems(cid).map(x => x.id);
+    const title = continentName(cid);
+    const total = stepCount(cid);
     const cards = items.map(it => {
       const regionLabel = kind === "us" ? it.region + " region" : it.region;
       return `<section class="geo-card">
@@ -451,20 +551,20 @@
       ${nav("")}
       <p class="kicker">${esc(title)} · Step ${index + 1} of ${total}</p>
       <h1 style="font-size:clamp(1.8rem,6vw,3rem);margin:0 0 .4rem">${esc(namesOf(items))}</h1>
-      <p class="muted" style="margin-top:0">A closer look at this ${placeWord(kind, items.length)}. Pinch or use +/− to zoom.</p>
+      <p class="muted" style="margin-top:0">The map is fitted to ${esc(title)}. Use + and − to zoom, and Fit to return to this view.</p>
       <div class="map-frame" id="map"></div>
       <div id="info">${cards}
         <div class="actions" style="margin-top:1rem"><button id="quiz">${esc(quizLabel)}</button></div>
       </div>`;
-    $("#h").onclick = () => pathHome(kind);
-    const map = new MapView($("#map"), { kind, topo, fitIds: fit });
+    $("#h").onclick = () => regionHome(cid);
+    const map = new MapView($("#map"), { kind, topo, continent: cid });
     const paint = { _default: "dim" };
-    fit.forEach(id => { paint[id] = ""; });
-    learnedIds.forEach(id => { if (fit.includes(id)) paint[id] = "ok"; });
+    regionIds.forEach(id => { paint[id] = ""; });
+    learnedIds.forEach(id => { paint[id] = "ok"; });
     ids.forEach(id => { paint[id] = "hl"; });
     map.paint(paint);
     if (!shot) { items.forEach(it => { rec(kind, it.id).seen++; }); save(); }
-    if ($("#quiz") && !shot) $("#quiz").onclick = () => startPathQuiz(kind, index, { revisit });
+    if ($("#quiz") && !shot) $("#quiz").onclick = () => startPathQuiz(cid, index, { revisit });
   }
 
   function quizLen(newItems, learned) {
@@ -498,64 +598,57 @@
     return shuffle(q).slice(0, n);
   }
 
-  async function startPathQuiz(kind, index, extra) {
+  async function startPathQuiz(cid, index, extra) {
+    const kind = kindOf(cid);
     const revisit = extra && extra.revisit;
     const review = extra && extra.review;
-    const newItems = review ? [] : GD().stepItems(kind, index);
-    const learned = itemsInSteps(kind, 0, review ? pathRec(kind).next : index);
+    const newItems = review ? [] : stepItemsCid(cid, index);
+    const learned = itemsInSteps(cid, 0, review ? pathRec(cid).next : index);
     const pool = review ? learned : learned.concat(newItems);
-    if (!pool.length) return pathHome(kind);
+    if (!pool.length) return regionHome(cid);
     const q = review
       ? pickSession(learned, kind, Math.min(5, learned.length)).map((it, i) => ({ mode: i % 2 ? "name" : "find", it }))
       : buildPathQuestions(kind, newItems, learned);
-    const session = { kind, index, q, i: 0, answers: [], revisit, review, pool };
-    if (!revisit && !review) { geo.resume = { type: "path", kind, index, phase: "quiz" }; save(); }
+    const session = { cid, kind, index, q, i: 0, answers: [], revisit, review, pool };
+    if (!revisit && !review) { geo.resume = { type: "path", cid, kind, index, phase: "quiz" }; save(); }
     await showPathQ(session);
   }
 
-  async function startReview(kind) {
-    const learned = itemsInSteps(kind, 0, pathRec(kind).next);
+  async function startReview(cid) {
+    const learned = itemsInSteps(cid, 0, pathRec(cid).next);
     if (learned.length < 3) {
-      pathRec(kind).reviewed[String(pathRec(kind).next)] = true;
+      pathRec(cid).reviewed[String(pathRec(cid).next)] = true;
       save();
-      return startPathLesson(kind, pathRec(kind).next);
+      return startPathLesson(cid, pathRec(cid).next);
     }
-    return startPathQuiz(kind, pathRec(kind).next, { review: true });
+    return startPathQuiz(cid, pathRec(cid).next, { review: true });
   }
 
   async function showPathQ(session) {
-    const { kind, q, i, pool } = session;
+    const { cid, kind, q, i, pool } = session;
     if (i >= q.length) return pathQuizDone(session);
     const target = q[i].it;
     const mode = q[i].mode;
     app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
-    $("#h").onclick = () => pathHome(kind);
+    $("#h").onclick = () => regionHome(cid);
     let topo;
     try { topo = await loadTopo(kind); }
-    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map.</p>`; $("#h").onclick = () => pathHome(kind); return; }
-    const learnedIds = pool.map(x => x.id);
-    const fit = contextIds(kind, topo, [target.id], learnedIds);
-    const kicker = session.review ? "Review" : (session.revisit ? "Practice" : "Quiz");
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map.</p>`; $("#h").onclick = () => regionHome(cid); return; }
+    const regionIds = continentItems(cid).map(x => x.id);
     const prompt = mode === "find"
-      ? `<div class="geo-prompt"><p class="kicker">${kicker} · ${i + 1} / ${q.length}</p><h2>Tap ${esc(target.name)} on the map</h2></div>`
-      : `<div class="geo-prompt"><p class="kicker">${kicker} · ${i + 1} / ${q.length}</p><h2>What place is highlighted?</h2></div>`;
-    const picks = mode === "name" ? namePicks(target, pool) : [];
-    const pickHtml = mode === "name" && picks.length > 1
-      ? `<div class="name-picks">${picks.map(p => `<button type="button" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div>`
-      : "";
-    const typeHtml = mode === "name"
-      ? `<form class="geo-type" id="typef"><input id="guess" type="text" autocomplete="off" autocapitalize="words" placeholder="Type the name"><button type="submit">Check</button></form>`
-      : "";
+      ? `<div class="geo-prompt"><p class="kicker">Find it · ${i + 1} / ${q.length}</p><h2>Tap ${esc(target.name)} on the map</h2></div>`
+      : `<div class="geo-prompt"><p class="kicker">Name it · ${i + 1} / ${q.length}</p><h2>What place is highlighted?</h2></div>`;
+    const picks = mode === "name" ? namePicks(target, pool.length > 3 ? pool : continentItems(cid)) : [];
     app().innerHTML = `
       ${nav("")}
       ${prompt}
       <div class="map-frame" id="map"></div>
-      ${pickHtml}${typeHtml}
-      <div id="info"><p class="hint">${mode === "find" ? "Tap it on the map." : "Pick or type the name."}</p></div>`;
-    $("#h").onclick = () => pathHome(kind);
-    const map = new MapView($("#map"), { kind, topo, fitIds: fit });
+      ${mode === "name" ? `<div class="name-picks">${picks.map(p => `<button type="button" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div>` : ""}
+      <div id="info"><p class="hint">${mode === "find" ? "Tap it on the map. Zoom in if you need a closer look." : "Pick the name. The map is fitted to this region."}</p></div>`;
+    $("#h").onclick = () => regionHome(cid);
+    const map = new MapView($("#map"), { kind, topo, continent: cid, onTap: id => {} });
     const paint = { _default: "dim" };
-    fit.forEach(id => { paint[id] = ""; });
+    regionIds.forEach(id => { paint[id] = ""; });
     if (mode === "name") paint[target.id] = "hl";
     map.paint(paint);
 
@@ -572,7 +665,7 @@
       session.answers.push({ id: target.id, ok });
       if (ok) ding();
       const show = { _default: "dim" };
-      fit.forEach(id => { show[id] = ""; });
+      regionIds.forEach(id => { show[id] = ""; });
       show[target.id] = ok ? "ok" : "miss";
       if (!ok && guessId && guessId !== "__none__") show[guessId] = "no";
       map.paint(show);
@@ -600,35 +693,29 @@
     };
     if (mode === "name") {
       app().querySelectorAll(".name-picks button").forEach(b => {
-        b.onclick = ev => { ev.stopPropagation(); finish(b.dataset.id); };
+        b.onclick = ev => { ev.stopPropagation(); if (!locked) finish(b.dataset.id); };
       });
-      if ($("#typef")) $("#typef").onsubmit = ev => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const guess = $("#guess").value;
-        if (!guess.trim()) return;
-        const match = pool.find(it => GD().matchName(it, guess));
-        finish(match ? match.id : "__none__");
-      };
     }
   }
 
   function pathQuizDone(session) {
     advanceFn = null;
     geo.resume = null;
+    const cid = session.cid;
     const n = session.answers.length;
     const right = session.answers.filter(a => a.ok).length;
     const pct = n ? Math.round(right / n * 100) : 0;
     const passed = didPass(right, n);
     const need = passNeed(n);
-    const p = pathRec(session.kind);
-    const total = stepCount(session.kind);
+    const p = pathRec(cid);
+    const total = stepCount(cid);
     if (session.review) {
       if (passed) {
         p.reviewed[String(p.next)] = true;
         save();
       } else save();
-      const nextName = p.next < total ? namesOf(GD().stepItems(session.kind, p.next)) : "";
+      const added = afterGeoProgress();
+      const nextName = p.next < total ? namesOf(stepItemsCid(cid, p.next)) : "";
       app().innerHTML = `
         ${nav("")}
         <section class="panel">
@@ -639,13 +726,14 @@
             ${passed
               ? (p.next < total ? `<button id="go">Next step</button>` : `<button id="home2">Geography home</button>`)
               : `<button id="again">Try the review again</button>`}
-            <button class="alt" id="h2">Path home</button>
+            <button class="alt" id="h2">Region home</button>
           </div>
         </section>`;
-      $("#h").onclick = $("#h2").onclick = () => pathHome(session.kind);
-      if ($("#go")) $("#go").onclick = () => startPathLesson(session.kind, p.next);
+      $("#h").onclick = $("#h2").onclick = () => regionHome(cid);
+      if ($("#go")) $("#go").onclick = () => startPathLesson(cid, p.next);
       if ($("#home2")) $("#home2").onclick = hub;
-      if ($("#again")) $("#again").onclick = () => startReview(session.kind);
+      if ($("#again")) $("#again").onclick = () => startReview(cid);
+      attachMysteryToast(added);
       return;
     }
     if (passed && !session.revisit && session.index === p.next) {
@@ -653,9 +741,10 @@
       p.next = session.index + 1;
     }
     save();
+    const added = afterGeoProgress();
     const unlocked = passed && !session.revisit && p.next === session.index + 1;
     const more = p.next < total;
-    const nxt = more ? namesOf(GD().stepItems(session.kind, p.next)) : "";
+    const nxt = more ? namesOf(stepItemsCid(cid, p.next)) : "";
     let msg;
     if (session.revisit) msg = `You got <b>${right}/${n}</b> on this practice. Your path progress stays where it is.`;
     else if (unlocked && more) msg = `You got <b>${right}/${n}</b>. <b>${esc(nxt)}</b> is unlocked.`;
@@ -671,49 +760,179 @@
           ${unlocked && more ? `<button id="go">Next: ${esc(nxt)}</button>` : ""}
           ${!passed && !session.revisit ? `<button id="again">Try the quiz again</button><button class="alt" id="lesson">Look at the map again</button>` : ""}
           ${session.revisit ? `<button id="again">Practice again</button>` : ""}
-          <button class="alt" id="h2">Path home</button>
+          <button class="alt" id="h2">Region home</button>
         </div>
       </section>`;
-    $("#h").onclick = $("#h2").onclick = () => pathHome(session.kind);
-    if ($("#go")) $("#go").onclick = () => beginStep(session.kind, p.next);
-    if ($("#again")) $("#again").onclick = () => startPathQuiz(session.kind, session.index, { revisit: session.revisit });
-    if ($("#lesson")) $("#lesson").onclick = () => startPathLesson(session.kind, session.index);
+    $("#h").onclick = $("#h2").onclick = () => regionHome(cid);
+    if ($("#go")) $("#go").onclick = () => beginStep(cid, p.next);
+    if ($("#again")) $("#again").onclick = () => startPathQuiz(cid, session.index, { revisit: session.revisit });
+    if ($("#lesson")) $("#lesson").onclick = () => startPathLesson(cid, session.index);
+    attachMysteryToast(added);
   }
 
-  function challengeHome(kind) {
+  function testPicks(target, pool, kind, topo) {
+    const nbr = neighborMap(kind, topo);
+    const ids = new Set(pool.map(p => p.id));
+    const near = (nbr[target.id] || []).map(id => findItem(kind, id)).filter(x => x && ids.has(x.id) && x.id !== target.id);
+    const rest = pool.filter(x => x.id !== target.id && !near.some(n => n.id === x.id));
+    const picks = shuffle(near).concat(shuffle(rest)).slice(0, 3);
+    return shuffle([target].concat(picks));
+  }
+
+  async function startRegionTest(cid, extra) {
     setTab("geo");
-    const regions = kind === "us" ? GD().STATE_REGIONS : GD().WORLD_REGIONS;
-    const title = kind === "us" ? "U.S. states" : "World countries";
-    const all = statsFor(kind, "All");
-    const chips = [`<button class="chip on" data-region="All">All (${all.known}/${all.total})</button>`]
-      .concat(regions.map(r => {
-        const s = statsFor(kind, r);
-        return `<button class="chip" data-region="${esc(r)}">${esc(r)} (${s.known}/${s.total})</button>`;
-      })).join("");
+    advanceFn = null;
+    const kind = kindOf(cid);
+    const shot = extra && extra.shot;
+    if (extra && extra.resume && geo.resume && geo.resume.type === "test" && geo.resume.cid === cid && geo.resume.session) {
+      return showTestQ(geo.resume.session);
+    }
+    const items = shuffle(continentItems(cid).slice());
+    if (!items.length) return regionHome(cid);
+    if (shot && extra.preview) {
+      const i = items.findIndex(x => x.id === extra.preview);
+      if (i > 0) { const tmp = items[0]; items[0] = items[i]; items[i] = tmp; }
+    }
+    const session = { type: "test", cid, kind, items, i: 0, answers: [], shot };
+    if (!shot) { geo.resume = { type: "test", cid, i: 0, session }; save(); }
+    await showTestQ(session);
+  }
+
+  async function showTestQ(session) {
+    const { cid, kind, items, i, shot } = session;
+    if (i >= items.length) return testDone(session);
+    const target = items[i];
+    app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
+    $("#h").onclick = () => regionHome(cid);
+    let topo;
+    try { topo = await loadTopo(kind); }
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map.</p>`; $("#h").onclick = () => regionHome(cid); return; }
+    const picks = testPicks(target, items, kind, topo);
+    const regionIds = items.map(x => x.id);
+    app().innerHTML = `
+      ${nav(`<button class="ghost" id="rs">Restart test</button>`)}
+      <div class="geo-prompt">
+        <p class="kicker">${esc(continentName(cid))} test · ${i + 1} / ${items.length}</p>
+        <h2>Which place is highlighted in red?</h2>
+      </div>
+      <div class="map-frame" id="map"></div>
+      <div class="name-picks">${picks.map(p => `<button type="button" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div>
+      <div id="info"><p class="hint">Pick the correct name. Use + and − if you need a closer look; Fit returns to the full region.</p></div>`;
+    $("#h").onclick = () => regionHome(cid);
+    if ($("#rs")) $("#rs").onclick = ev => { ev.stopPropagation(); startRegionTest(cid); };
+    const map = new MapView($("#map"), { kind, topo, continent: cid, onTap: () => {} });
+    const paint = { _default: "dim" };
+    regionIds.forEach(id => { paint[id] = ""; });
+    paint[target.id] = "test";
+    map.paint(paint);
+    let locked = false;
+    const finish = (guessId) => {
+      if (locked) return;
+      locked = true;
+      map.locked = true;
+      const ok = guessId === target.id;
+      if (!shot) {
+        const r = rec(kind, target.id);
+        r.seen++;
+        if (ok) r.right++; else r.wrong++;
+        session.answers.push({ id: target.id, ok });
+        session.i = i;
+        geo.resume = { type: "test", cid, i: i, session };
+        save();
+      }
+      if (ok) ding();
+      const show = { _default: "dim" };
+      regionIds.forEach(id => { show[id] = ""; });
+      show[target.id] = ok ? "ok" : "miss";
+      if (!ok && guessId) show[guessId] = "no";
+      map.paint(show);
+      app().querySelectorAll(".name-picks button").forEach(b => {
+        if (b.dataset.id === target.id) b.classList.add("ok");
+        else if (b.dataset.id === guessId && !ok) b.classList.add("no");
+      });
+      $("#info").innerHTML = ok
+        ? `<p class="hint">Yes — ${esc(target.name)}. Tap anywhere to continue.</p>`
+        : `<p class="hint">It’s ${esc(target.name)}. Tap anywhere to continue.</p>`;
+      const next = () => { advanceFn = null; session.i = i + 1; if (!shot) { geo.resume = { type: "test", cid, i: session.i, session }; save(); } showTestQ(session); };
+      advanceFn = next;
+      const btn = document.createElement("div");
+      btn.className = "actions";
+      btn.style.marginTop = ".7rem";
+      btn.innerHTML = `<button type="button" id="nx">Next</button>`;
+      $("#info").appendChild(btn);
+      $("#nx").onclick = ev => { ev.stopPropagation(); next(); };
+    };
+    app().querySelectorAll(".name-picks button").forEach(b => {
+      b.onclick = ev => { ev.stopPropagation(); if (!locked) finish(b.dataset.id); };
+    });
+  }
+
+  function testDone(session) {
+    advanceFn = null;
+    const { cid, shot } = session;
+    const n = session.answers.length;
+    const right = session.answers.filter(a => a.ok).length;
+    const pct = n ? Math.round(right / n * 100) : 0;
+    if (!shot) {
+      const recT = testRec(cid);
+      recT.last = { right, n, pct, at: new Date().toISOString() };
+      if (!recT.best || pct > recT.best.pct || (pct === recT.best.pct && right >= recT.best.right)) recT.best = recT.last;
+      geo.resume = null;
+      save();
+    }
+    const added = shot ? [] : afterGeoProgress();
+    const passed = didPass(right, n);
+    const best = testRec(cid).best;
+    const bestLine = best && best.pct !== pct ? ` Best so far is ${best.pct}%.` : "";
+    const passLine = passed
+      ? " That’s a high score (90% or better), so this region’s test folder can open in Mystery."
+      : ` You need ${passNeed(n)}/${n} (90%) for a high score and the Mystery folder. You can try again anytime.`;
     app().innerHTML = `
       ${nav("")}
-      <section class="cover">
-        <p class="kicker">Challenge · ${esc(title)}</p>
-        <h1 style="font-size:clamp(2.2rem,7vw,4rem)">${esc(title)}</h1>
-        <p class="cover-lead">Optional practice on a bigger map. Pick a region, then learn the map or start a short practice of about 10 places. Missed ones show up more often. There is no passing score here.</p>
-      </section>
-      <div class="chips" id="regs">${chips}</div>
-      <div class="actions">
-        <button id="learn">Learn the map</button>
-        <button class="alt" id="find">Find it</button>
-        <button class="alt" id="name">Name it</button>
-      </div>`;
-    $("#h").onclick = hub;
-    let region = "All";
-    app().querySelectorAll("#regs .chip").forEach(c => c.onclick = () => {
-      app().querySelectorAll("#regs .chip").forEach(x => x.classList.remove("on"));
-      c.classList.add("on");
-      region = c.dataset.region;
-    });
-    $("#learn").onclick = () => startLearn(kind, region);
-    $("#find").onclick = () => startPractice(kind, region, "find");
-    $("#name").onclick = () => startPractice(kind, region, "name");
+      <section class="panel">
+        <p class="kicker">${esc(continentName(cid))} test</p>
+        <div class="score-xl">${pct}%</div>
+        <p>You got <b>${right}/${n}</b>.${esc(bestLine)}${passLine}</p>
+        <div class="actions" style="justify-content:center;margin-top:1rem">
+          <button id="again">Take the test again</button>
+          <button class="alt" id="h2">Region home</button>
+        </div>
+      </section>`;
+    $("#h").onclick = $("#h2").onclick = () => regionHome(cid);
+    $("#again").onclick = () => startRegionTest(cid);
+    attachMysteryToast(added);
   }
+
+  function challengeHome(cid) {
+    return regionHome(cid);
+  }
+
+  function clipLon(feature, maxLon, d3) {
+    const g = feature.geometry;
+    if (!g) return feature;
+    const polys = g.type === "Polygon" ? [g.coordinates] : (g.type === "MultiPolygon" ? g.coordinates : []);
+    const keep = [];
+    polys.forEach(coords => {
+      const feat = { type: "Feature", geometry: { type: "Polygon", coordinates: coords } };
+      const c = d3.geoCentroid(feat);
+      if (Number.isFinite(c[0]) && c[0] <= maxLon) keep.push(coords);
+    });
+    if (!keep.length) return feature;
+    if (keep.length === 1) return { type: "Feature", properties: feature.properties, geometry: { type: "Polygon", coordinates: keep[0] } };
+    return { type: "Feature", properties: feature.properties, geometry: { type: "MultiPolygon", coordinates: keep } };
+  }
+  function fitShape(f, cid, kind, d3) {
+    const it = itemForFeat(kind, f);
+    if (cid === "eu") {
+      const base = mainland(f, d3);
+      if (it && it.id === "643") return clipLon(base, 60, d3);
+      return base;
+    }
+    if (cid === "na" || cid === "oc" || cid === "us") return f;
+    return mainland(f, d3);
+  }
+
+  const ZMAX = 7;
 
   function MapView(frame, opts) {
     const d3 = window.d3geo;
@@ -728,20 +947,28 @@
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", opts.kind === "us" ? "Map of the United States" : "Map of the world");
+    const label = opts.continent ? ("Map of " + continentName(opts.continent)) : (opts.kind === "us" ? "Map of the United States" : "Map of the world");
+    svg.setAttribute("aria-label", label);
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
     svg.appendChild(g);
     frame.innerHTML = "";
     frame.appendChild(svg);
     const tools = document.createElement("div");
     tools.className = "map-tools";
-    tools.innerHTML = `<button type="button" id="zIn" aria-label="Zoom in">+</button><button type="button" id="zOut" aria-label="Zoom out">−</button><button type="button" id="zRst" aria-label="Reset map">⌂</button>`;
+    tools.innerHTML = `<button type="button" id="zIn" aria-label="Zoom in">+</button><button type="button" id="zOut" aria-label="Zoom out">−</button><button type="button" id="zRst" aria-label="Fit map to the region">Fit</button>`;
     frame.appendChild(tools);
 
     const proj = opts.kind === "us" ? d3.geoAlbersUsa() : d3.geoNaturalEarth1();
     const all = this.features.filter(f => featId(f) !== "010" && (f.properties && f.properties.name) !== "Antarctica");
     let fitSet = all;
-    if (opts.fitIds && opts.fitIds.length) {
+    if (opts.continent) {
+      const ids = new Set(continentItems(opts.continent).map(x => x.id));
+      fitSet = all.filter(f => {
+        const it = itemForFeat(opts.kind, f);
+        return it && ids.has(it.id);
+      });
+      if (!fitSet.length) fitSet = all;
+    } else if (opts.fitIds && opts.fitIds.length) {
       const want = new Set(opts.fitIds);
       fitSet = all.filter(f => {
         const it = itemForFeat(opts.kind, f);
@@ -756,19 +983,20 @@
       });
       if (!fitSet.length) fitSet = all;
     }
-    const pad = (opts.fitIds && opts.fitIds.length) ? 40 : 16;
+    const pad = 16;
+    const cid = opts.continent || null;
     const fitFC = {
       type: "FeatureCollection",
-      features: fitSet.map(f => mainland(f, d3))
+      features: fitSet.map(f => cid ? fitShape(f, cid, opts.kind, d3) : mainland(f, d3))
     };
     proj.fitExtent([[pad, pad], [W - pad, H - pad]], fitFC);
     this.proj = proj;
     this.path = d3.geoPath(proj);
-    this.baseFit = { type: "FeatureCollection", features: all.map(f => mainland(f, d3)) };
-    this.g = g; this.svg = svg; this.frame = frame; this.W = W; this.H = H;
+    this.g = g; this.svg = svg; this.frame = frame; this.W = W; this.H = H; this.zMax = ZMAX;
 
     const paths = {};
-    all.forEach(f => {
+    const drawSet = (opts.continent || (opts.fitIds && opts.fitIds.length) || (opts.region && opts.region !== "All")) ? fitSet : all;
+    drawSet.forEach(f => {
       const d = this.path(f);
       if (!d) return;
       const id = featId(f);
@@ -807,14 +1035,17 @@
     });
 
     this.applyVb = () => svg.setAttribute("viewBox", `${this.vb.x} ${this.vb.y} ${this.vb.w} ${this.vb.h}`);
+    this.clampVb = () => { this.vb = clampViewBox(this.vb, W, H, ZMAX); this.applyVb(); };
     this.zoomAt = (cx, cy, factor) => {
-      const { x, y, w, h } = this.vb;
-      const nw = Math.max(80, Math.min(4000, w * factor));
+      const { x, y, w } = this.vb;
+      const fw = frame.clientWidth || W;
+      const fh = frame.clientHeight || H;
+      const nw = w * factor;
       const nh = nw * (H / W);
-      const px = (cx / frame.clientWidth) * w + x;
-      const py = (cy / frame.clientHeight) * h + y;
-      this.vb = { w: nw, h: nh, x: px - (cx / frame.clientWidth) * nw, y: py - (cx / frame.clientHeight) * nh };
-      this.applyVb();
+      const px = (cx / fw) * w + x;
+      const py = (cy / fh) * this.vb.h + y;
+      this.vb = { w: nw, h: nh, x: px - (cx / fw) * nw, y: py - (cy / fh) * nh };
+      this.clampVb();
     };
     this.reset = () => { this.vb = { x: 0, y: 0, w: W, h: H }; this.applyVb(); };
     tools.querySelector("#zIn").onclick = ev => { ev.stopPropagation(); this.zoomAt(frame.clientWidth / 2, frame.clientHeight / 2, 0.7); };
@@ -843,7 +1074,7 @@
       this.vb.x -= dx * (w / frame.clientWidth);
       this.vb.y -= dy * (h / frame.clientHeight);
       lx = p.x; ly = p.y;
-      this.applyVb();
+      this.clampVb();
     });
     const endDrag = ev => {
       if (ev.pointerId !== pid) return;
@@ -881,48 +1112,41 @@
     const allEls = this.g.querySelectorAll("[data-id]");
     allEls.forEach(el => {
       const st = states[el.dataset.id] || states._default || "";
-      el.classList.remove("hl", "ok", "no", "miss", "dim");
+      el.classList.remove("hl", "ok", "no", "miss", "dim", "test");
       if (st) el.classList.add(st);
     });
   };
-  MapView.prototype.focusId = function (id) {
-    const els = this.paths[id];
-    if (!els || !els[0]) return;
-    try {
-      const box = els[0].getBBox();
-      const pad = 80;
-      const w = Math.max(120, box.width + pad);
-      const h = w * (this.H / this.W);
-      this.vb = { x: box.x + box.width / 2 - w / 2, y: box.y + box.height / 2 - h / 2, w, h };
-      this.applyVb();
-    } catch (e) {}
-  };
+  MapView.prototype.focusId = function () { this.reset(); };
 
-  async function startLearn(kind, region, extra) {
+  async function startLearn(cid, extra) {
     setTab("geo");
+    const kind = kindOf(cid);
+    const shot = extra && extra.shot;
     app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
-    $("#h").onclick = () => challengeHome(kind);
+    $("#h").onclick = () => regionHome(cid);
     let topo;
     try { topo = await loadTopo(kind); }
-    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map. ${esc(err.message)}</p>`; $("#h").onclick = () => challengeHome(kind); return; }
-    const title = kind === "us" ? "U.S. states" : "World countries";
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map. ${esc(err.message)}</p>`; $("#h").onclick = () => regionHome(cid); return; }
+    const title = continentName(cid);
     const loc = kind === "us" ? "state" : "country";
-    const regLine = region && region !== "All" ? ` Showing ${esc(region)}.` : "";
     app().innerHTML = `
       ${nav("")}
       <p class="kicker">Challenge · ${esc(title)} · Learn</p>
       <h1 style="font-size:clamp(1.8rem,6vw,3rem);margin:0 0 .4rem">Tap a place to name it</h1>
-      <p class="muted" style="margin-top:0">Pinch or use +/− to zoom. Tiny places have a larger tap target.${regLine}</p>
+      <p class="muted" style="margin-top:0">The map is fitted to ${esc(title)}. Use + and − to zoom, and Fit to return. Tiny places have a larger tap target.</p>
       <div class="map-frame" id="map"></div>
       <div id="info"><p class="hint">Tap any ${loc} on the map.</p></div>`;
-    $("#h").onclick = () => challengeHome(kind);
+    $("#h").onclick = () => regionHome(cid);
     const map = new MapView($("#map"), {
-      kind, topo, region,
+      kind, topo, continent: cid,
       onTap: id => {
         const it = findItem(kind, id);
         if (!it) return;
-        rec(kind, it.id).seen++; save();
-        map.paint({ [it.id]: "hl", _default: "" });
+        if (!shot) { rec(kind, it.id).seen++; save(); }
+        const st = { _default: "dim" };
+        continentItems(cid).forEach(x => { st[x.id] = ""; });
+        st[it.id] = "hl";
+        map.paint(st);
         $("#info").innerHTML = `
           <section class="geo-card">
             <h2>${esc(it.name)}</h2>
@@ -932,60 +1156,46 @@
           </section>`;
       }
     });
-    if (region && region !== "All") {
-      const ids = list(kind, region).map(x => x.id);
-      const st = { _default: "dim" };
-      ids.forEach(id => { st[id] = ""; });
-      map.paint(st);
-    }
   }
 
-  async function startPractice(kind, region, mode) {
+  async function startPractice(cid, mode) {
     setTab("geo");
-    const items = list(kind, region);
-    if (items.length < 1) return challengeHome(kind);
+    const kind = kindOf(cid);
+    const items = continentItems(cid);
+    if (items.length < 1) return regionHome(cid);
     const q = pickSession(items, kind, SESSION_N);
-    const session = { kind, region, mode, q, i: 0, answers: [] };
-    geo.resume = { kind, region, mode, i: 0 }; save();
+    const session = { cid, kind, mode, q, i: 0, answers: [] };
+    geo.resume = { type: "practice", cid, mode, i: 0 }; save();
     await showQ(session);
   }
 
   async function showQ(session) {
-    const { kind, region, mode, q, i } = session;
+    const { cid, kind, mode, q, i } = session;
     if (i >= q.length) return practiceDone(session);
     const target = q[i];
     app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
-    $("#h").onclick = () => challengeHome(kind);
+    $("#h").onclick = () => regionHome(cid);
     let topo;
     try { topo = await loadTopo(kind); }
-    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map.</p>`; $("#h").onclick = () => challengeHome(kind); return; }
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map.</p>`; $("#h").onclick = () => regionHome(cid); return; }
     const prompt = mode === "find"
       ? `<div class="geo-prompt"><p class="kicker">Find it · ${i + 1} / ${q.length}</p><h2>Tap ${esc(target.name)} on the map</h2></div>`
       : `<div class="geo-prompt"><p class="kicker">Name it · ${i + 1} / ${q.length}</p><h2>What place is highlighted?</h2></div>`;
-    const picks = mode === "name" ? namePicks(target, list(kind, region)) : [];
+    const picks = mode === "name" ? namePicks(target, continentItems(cid)) : [];
     app().innerHTML = `
       ${nav(`<button class="ghost" id="rs">Restart</button>`)}
       ${prompt}
       <div class="map-frame" id="map"></div>
       ${mode === "name" ? `<div class="name-picks">${picks.map(p => `<button type="button" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div>
       <form class="geo-type" id="typef"><input id="guess" type="text" autocomplete="off" autocapitalize="words" placeholder="Type the name"><button type="submit">Check</button></form>` : ""}
-      <div id="info"><p class="hint">${mode === "find" ? "Tap it on the map." : "Pick or type the name."}</p></div>`;
-    $("#h").onclick = () => challengeHome(kind);
-    $("#rs").onclick = () => startPractice(kind, region, mode);
-    const map = new MapView($("#map"), { kind, topo, region, onTap: id => {} });
-    if (mode === "name") {
-      map.paint({ [target.id]: "hl", _default: region && region !== "All" ? "dim" : "" });
-      if (region && region !== "All") {
-        const st = { _default: "dim", [target.id]: "hl" };
-        list(kind, region).forEach(x => { if (x.id !== target.id) st[x.id] = ""; });
-        map.paint(st);
-      }
-      map.focusId(target.id);
-    } else if (region && region !== "All") {
-      const st = { _default: "dim" };
-      list(kind, region).forEach(x => { st[x.id] = ""; });
-      map.paint(st);
-    }
+      <div id="info"><p class="hint">${mode === "find" ? "Tap it on the map. Use + and − if you need a closer look." : "Pick or type the name."}</p></div>`;
+    $("#h").onclick = () => regionHome(cid);
+    $("#rs").onclick = () => startPractice(cid, mode);
+    const map = new MapView($("#map"), { kind, topo, continent: cid, onTap: id => {} });
+    const st = { _default: "dim" };
+    continentItems(cid).forEach(x => { st[x.id] = ""; });
+    if (mode === "name") st[target.id] = "hl";
+    map.paint(st);
     let locked = false;
     const finish = (guessId) => {
       if (locked) return;
@@ -998,11 +1208,8 @@
       save();
       session.answers.push({ id: target.id, ok });
       if (ok) ding();
-      const show = {};
-      if (region && region !== "All") {
-        list(kind, region).forEach(x => { show[x.id] = ""; });
-        show._default = "dim";
-      }
+      const show = { _default: "dim" };
+      continentItems(cid).forEach(x => { show[x.id] = ""; });
       show[target.id] = ok ? "ok" : "miss";
       if (!ok && guessId && guessId !== "__none__") show[guessId] = "no";
       map.paint(show);
@@ -1034,7 +1241,7 @@
         ev.stopPropagation();
         const guess = $("#guess").value;
         if (!guess.trim()) return;
-        const match = list(kind, "All").find(it => GD().matchName(it, guess));
+        const match = continentItems(cid).find(it => GD().matchName(it, guess));
         finish(match ? match.id : "__none__");
       };
     }
@@ -1051,26 +1258,28 @@
     const right = session.answers.filter(a => a.ok).length;
     const pct = n ? Math.round(right / n * 100) : 0;
     geo.resume = null; save();
-    const s = statsFor(session.kind, session.region);
+    const items = continentItems(session.cid);
+    const knownN = items.filter(it => known(rec(session.kind, it.id))).length;
     app().innerHTML = `
       ${nav("")}
       <section class="panel">
-        <p class="kicker">${session.mode === "find" ? "Find it" : "Name it"}</p>
+        <p class="kicker">${session.mode === "find" ? "Find it" : "Name it"} · ${esc(continentName(session.cid))}</p>
         <div class="score-xl">${pct}%</div>
-        <p>You got <b>${right}/${n}</b>. ${s.known} of ${s.total} in this set are feeling familiar. There is no passing score in Challenge mode.</p>
+        <p>You got <b>${right}/${n}</b>. ${knownN} of ${items.length} in this set are feeling familiar. There is no passing score in Challenge mode.</p>
         <div class="actions" style="justify-content:center;margin-top:1rem">
           <button id="again">Practice again</button>
-          <button class="alt" id="h2">Geography home</button>
+          <button class="alt" id="h2">Region home</button>
         </div>
       </section>`;
-    $("#h").onclick = $("#h2").onclick = hub;
-    $("#again").onclick = () => startPractice(session.kind, session.region, session.mode);
+    $("#h").onclick = $("#h2").onclick = () => regionHome(session.cid);
+    $("#again").onclick = () => startPractice(session.cid, session.mode);
   }
 
   window.Geo = {
-    open, setTab, blank, hydrate,
+    open, setTab, blank, hydrate, clampViewBox, ZMAX,
     exportState: () => geo,
     importState: (data) => { if (data && typeof data === "object") { geo = hydrate(data); save(); } },
-    weight, pickSession, keyFor, SESSION_N, list, passNeed, didPass, pathRec
+    weight, pickSession, keyFor, SESSION_N, list, passNeed, didPass, pathRec,
+    passedSteps, testPassed, testRec, kindOf, continentName
   };
 })();

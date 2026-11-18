@@ -283,12 +283,18 @@ input[type=file]{display:none}
   text-transform:uppercase;padding:.05rem .3rem;transform:rotate(-8deg);
 }
 
-/* ——— Tabs ——— */
-.tabs{display:flex;gap:.35rem;flex-wrap:wrap}
+/* ——— Tabs (below the mast, larger and easier to tap) ——— */
+.tabs{
+  display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;
+  position:sticky;top:3.15rem;z-index:29;
+  max-width:1080px;margin:0 auto;padding:.55rem 1rem .5rem;
+  background:color-mix(in srgb, var(--yellow) 92%, #fff);
+  border-bottom:3px solid var(--ink);
+}
 .tab{
   border:2px solid var(--ink);background:var(--paper);color:var(--ink);
-  border-radius:999px;padding:.35rem .85rem;font-weight:800;font-size:.92rem;
-  box-shadow:2px 2px 0 var(--ink);cursor:pointer;
+  border-radius:999px;padding:.55rem 1.15rem;font-weight:800;font-size:1.05rem;
+  box-shadow:3px 3px 0 var(--ink);cursor:pointer;
 }
 .tab.on{background:var(--tangerine);color:var(--paper)}
 .mast-bar{gap:.7rem;flex-wrap:wrap}
@@ -374,3 +380,69 @@ circle.hit.hl,path.geo.hl + circle.hit{stroke:var(--ink);stroke-width:1;fill:#EE
 .pip.lock{opacity:.5;cursor:default;box-shadow:none}
 .sit{font-weight:700;margin:.15rem 0 .45rem;color:var(--ink)}
 .geo-card + .geo-card{margin-top:.7rem}
+
+path.geo.test,circle.hit.test{fill:#C33B0C;stroke:var(--ink);stroke-width:1.2}
+circle.hit.test{fill:#C33B0C88}
+.map-tools button{min-width:2.7rem;min-height:2.5rem;padding:.35rem .7rem;font-size:1.05rem;font-weight:800}
+.geo-hub-7{grid-template-columns:1fr}
+@media (min-width:700px){.geo-hub-7{grid-template-columns:1fr 1fr}}
+@media (min-width:980px){.geo-hub-7{grid-template-columns:1fr 1fr 1fr}}
+.geo-poster.us-choice{background:var(--peach);box-shadow:6px 6px 0 var(--tangerine-dark)}
+.geo-poster .kicker::before,.geo-poster .kicker::after{display:none}
+
+.lesson-intro,.lesson-examples{
+  background:var(--paper);border:3px solid var(--ink);
+  padding:1rem 1.05rem 1.1rem;margin:0 0 1.1rem;
+  box-shadow:5px 5px 0 var(--yellow-2);
+}
+.lesson-intro h2,.lesson-examples h2{
+  font-family:var(--font-display);font-style:italic;margin:0 0 .4rem;font-size:1.55rem;
+}
+.lesson-intro p{margin:0}
+.example-card{background:var(--yellow);border:2px solid var(--ink);padding:.8rem .9rem;margin:.7rem 0 0}
+.example-card h3{font-family:var(--font-display);font-style:italic;margin:0 0 .25rem;font-size:1.15rem}
+.example-card p{margin:0}
+
+.case-theory{
+  background:var(--yellow);border:3px solid var(--ink);
+  padding:1rem 1.05rem;margin:0 0 1.3rem;
+  box-shadow:6px 6px 0 var(--tangerine);
+}
+.case-theory h2{font-family:var(--font-display);font-style:italic;margin:0 0 .35rem;font-size:1.5rem}
+.case-theory p{margin:0;font-weight:600}
+.suspect-row{display:grid;grid-template-columns:1fr;gap:.8rem;margin:0 0 1.3rem}
+@media (min-width:700px){.suspect-row{grid-template-columns:1fr 1fr}}
+.suspect-card{
+  background:var(--paper);border:3px solid var(--ink);padding:.85rem .9rem 1rem;
+  box-shadow:4px 4px 0 var(--yellow-2);text-align:left;
+}
+.suspect-card h3{font-family:var(--font-display);font-style:italic;margin:0 0 .35rem;font-size:1.35rem}
+.suspect-card .kicker{display:block;justify-content:flex-start;margin:0 0 .2rem;letter-spacing:.1em}
+.suspect-card .kicker::before,.suspect-card .kicker::after{display:none;content:none;flex:none}
+.suspect-card p{margin:0 0 .35rem}
+.mystery-board .clue-grid{
+  display:grid;grid-template-columns:1fr;gap:.85rem;
+}
+@media (min-width:700px){.mystery-board .clue-grid{grid-template-columns:1fr 1fr}}
+.clue-card{
+  position:relative;text-align:left;width:100%;
+  background:var(--paper);border:3px solid var(--ink);
+  border-radius:2px;padding:1rem .9rem .85rem;
+  box-shadow:4px 4px 0 var(--ink);color:var(--ink);
+  transform:rotate(-0.6deg);
+}
+.clue-card:nth-child(2n){transform:rotate(0.8deg);background:var(--yellow)}
+.clue-card:nth-child(3n){transform:rotate(-1.1deg)}
+.clue-card.fresh{background:var(--peach)}
+.clue-card.locked{
+  background:#E8D4BE;opacity:.9;cursor:default;box-shadow:none;
+  transform:none;font-weight:600;
+}
+.clue-card h3{font-family:var(--font-display);font-style:italic;margin:.15rem 0 .2rem;font-size:1.2rem}
+.clue-index{display:block;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--tangerine-dark)}
+.clue-spread .clue-body p{font-size:1.05rem;max-width:38rem}
+.mystery-toast{
+  margin-top:1rem;padding:.9rem 1rem;background:var(--peach);
+  border:3px solid var(--ink);box-shadow:4px 4px 0 var(--tangerine);
+}
+.mystery-toast p{margin:0 0 .6rem;font-weight:700}

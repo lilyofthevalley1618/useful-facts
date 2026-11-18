@@ -159,7 +159,83 @@ function hydrate(raw) {
 const migrated = hydrate(oldSave);
 assert.strictEqual(migrated.items["w:840"].right, 3, "must not wipe item stats");
 assert.strictEqual(migrated.path.world.next, 0);
-assert.ok(/World path/.test(geoSrc) && /California/.test(geoSrc));
+
+assert.ok(/California/.test(geoSrc), "U.S. path still starts with California in the UI or data");
+
+// Lessons now include a clear intro, researched examples, and 4–6 quiz questions.
+for (const l of LESSONS) {
+  assert.ok(l.intro && l.intro.length > 80, l.id + " needs an explanation of the topic");
+  assert.ok(Array.isArray(l.examples) && l.examples.length >= 2, l.id + " needs real-life examples");
+  l.examples.forEach((ex, i) => {
+    assert.ok(ex.t && ex.b && ex.b.length > 40, l.id + " example " + i);
+  });
+  assert.ok(l.quiz.length >= 4 && l.quiz.length <= 6, l.id + " should have 4–6 quiz questions, got " + l.quiz.length);
+}
+const lessonBlob = LESSONS.map(l => [l.intro, ...(l.examples || []).map(e => e.t + " " + e.b)].join(" ")).join("\n").toLowerCase();
+assert.ok(/roediger|karpicke|retrieval/.test(lessonBlob), "metacognition example");
+assert.ok(/ever given|suez/.test(lessonBlob), "geopolitics example");
+assert.ok(/dutch hunger/.test(lessonBlob), "epigenetics example");
+assert.ok(/taxi/.test(lessonBlob) && /hippocampus/.test(lessonBlob), "neuroplasticity example");
+assert.ok(/john snow|broad street/.test(lessonBlob), "thinking example");
+
+// Continents + U.S. States picker
+assert.strictEqual(GeoData.CONTINENTS.length, 7, "six continents plus U.S. States");
+assert.deepStrictEqual(GeoData.CONTINENTS.map(c => c.id), ["na","sa","eu","af","as","oc","us"]);
+const na = GeoData.continentItems("na");
+assert.ok(na.some(c => c.name === "United States") && na.some(c => c.region === "Central America & Caribbean"));
+const asia = GeoData.continentItems("as");
+assert.ok(asia.some(c => c.region === "Middle East & Caucasus") && asia.some(c => c.name === "China"));
+assert.strictEqual(GeoData.continentPath("us")[0].join(), "06");
+assert.strictEqual(GeoData.continentPath("eu")[0].join(), "826", "Europe path should start with the United Kingdom");
+for (const c of GeoData.CONTINENTS) {
+  const items = GeoData.continentItems(c.id);
+  const path = GeoData.continentPath(c.id).flat();
+  assert.strictEqual(new Set(path).size, items.length, c.id + " path should cover each place once");
+  assert.ok(items.every(it => path.includes(it.id)), c.id + " missing an item on the path");
+}
+
+// Zoom clamps: min is the fitted view, max is 7x, pan stays in bounds
+assert.ok(geoSrc.includes("const ZMAX = 7") && geoSrc.includes("function clampViewBox"), "zoom clamps must live in geo.js");
+assert.ok(/Fit map to the region/.test(geoSrc) && /id="zRst"/.test(geoSrc), "Fit button");
+assert.ok(/Take a test/.test(geoSrc) && /path\.geo\.test|class="test"/.test(css + geoSrc), "region tests");
+function clampViewBox(vb, W, H, zMax) {
+  const minW = W / zMax, maxW = W;
+  let w = Math.max(minW, Math.min(maxW, vb.w));
+  if (!Number.isFinite(w) || w <= 0) w = W;
+  const h = w * (H / W);
+  const x = Math.max(0, Math.min(Math.max(0, W - w), vb.x));
+  const y = Math.max(0, Math.min(Math.max(0, H - h), vb.y));
+  return { x, y, w, h };
+}
+const W = 1000, H = 560, Z = 7;
+assert.strictEqual(clampViewBox({ x: 0, y: 0, w: 2000, h: 1120 }, W, H, Z).w, W, "cannot zoom out past fitted view");
+assert.strictEqual(clampViewBox({ x: 0, y: 0, w: 50, h: 28 }, W, H, Z).w, W / Z, "max zoom is 7x");
+const panned = clampViewBox({ x: -400, y: -400, w: 200, h: 112 }, W, H, Z);
+assert.ok(panned.x >= 0 && panned.y >= 0 && panned.x + panned.w <= W + 1e-9 && panned.y + panned.h <= H + 1e-9, "pan stays in view");
+assert.ok(/tab-mystery/.test(html), "Mystery tab in the header");
+assert.ok(/payload\.mystery|data\.mystery/.test(fs.readFileSync(__dirname + "/app.js", "utf8")), "backup/restore must include the case file");
+
+const Mystery = require("./mystery-data.js");
+assert.strictEqual(Mystery.title, "False North");
+assert.ok(Mystery.clues.length >= 20 && Mystery.clues.length <= 30, "20–30 clues, got " + Mystery.clues.length);
+assert.strictEqual(new Set(Mystery.clues.map(c => c.id)).size, Mystery.clues.length, "unique clue ids");
+assert.ok(Mystery.clues[0].unlock && Mystery.clues[0].unlock.type === "free");
+const cids = ["na","sa","eu","af","as","oc","us"];
+cids.forEach(cid => {
+  const group = Mystery.clues.filter(c => c.unlock && (c.unlock.cid === cid));
+  assert.ok(group.length === 3, "each region should have 3 clues, " + cid + " has " + group.length);
+  assert.ok(group.some(c => c.unlock.type === "steps" && c.unlock.n === 1));
+  assert.ok(group.some(c => c.unlock.type === "steps" && c.unlock.n === 4));
+  assert.ok(group.some(c => c.unlock.type === "test"));
+});
+assert.ok(Mystery.clues.filter(c => c.unlock && c.unlock.type === "finale").length >= 3, "finale chapters");
+assert.ok(Mystery.suspects.length >= 4);
+assert.ok(!/ellingham|stevie bell|cassie hobbes|naturals|fbi academy/i.test(JSON.stringify(Mystery)), "must not copy those series");
+assert.ok(fs.existsSync(__dirname + "/mystery.js"));
+assert.ok(/usefulFacts\.mystery\.v1/.test(fs.readFileSync(__dirname + "/mystery.js", "utf8")));
+assert.ok(/What this is/.test(fs.readFileSync(__dirname + "/app.js", "utf8")) && /In real life/.test(fs.readFileSync(__dirname + "/app.js", "utf8")));
+
+
 
 
 console.log("ok", LESSONS.length, "lessons", facts.length, "facts", questions.length, "questions", watches.length, "corrections");

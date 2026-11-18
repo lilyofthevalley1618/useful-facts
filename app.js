@@ -87,7 +87,7 @@
   }
 
   function home() {
-    if (window.Geo && window.Geo.setTab) window.Geo.setTab("lessons");
+    setTab("lessons");
     prog.resume = null; save(); clearObs();
     const s = stats();
     const notes = LESSONS.map((l, i) => {
@@ -193,6 +193,8 @@
           <h1>${esc(lesson.title)}</h1>
           <p class="dek">${esc(lesson.blurb)}</p>
         </header>
+        ${lesson.intro ? `<section class="lesson-intro"><h2>What this is</h2><p>${esc(lesson.intro)}</p></section>` : ""}
+        ${lesson.examples && lesson.examples.length ? `<section class="lesson-examples"><h2>In real life</h2>${lesson.examples.map(ex => `<div class="example-card"><h3>${esc(ex.t)}</h3><p>${esc(ex.b)}</p></div>`).join("")}</section>` : ""}
         ${blocks}
         <div class="quiz-cta">
           <button id="toquiz">Quiz yourself</button>
@@ -386,6 +388,7 @@
     $("#ex").onclick = () => {
       const payload = { kind: "usefulFacts.v1", saved: new Date().toISOString(), progress: prog };
       if (window.Geo && window.Geo.exportState) payload.geo = window.Geo.exportState();
+      if (window.Mystery && window.Mystery.exportState) payload.mystery = window.Mystery.exportState();
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
       a.download = `useful-facts-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
@@ -398,24 +401,46 @@
         prog = Object.assign(blank(), next, { lessons: next.lessons || {} });
         save();
         if (data.geo && window.Geo && window.Geo.importState) window.Geo.importState(data.geo);
-        $("#msg").textContent = data.geo ? "Restored lesson progress, scores, and geography practice." : "Restored lesson progress and scores.";
+        if (data.mystery && window.Mystery && window.Mystery.importState) window.Mystery.importState(data.mystery);
+        const bits = ["lesson progress", "scores"];
+        if (data.geo) bits.push("geography practice");
+        if (data.mystery) bits.push("the case file");
+        $("#msg").textContent = "Restored " + bits.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
       } catch (err) { $("#msg").textContent = "Could not restore: " + err.message; }
     };
+  }
+
+  function setTab(which) {
+    const ids = { lessons: "tab-lessons", geo: "tab-geo", mystery: "tab-mystery" };
+    Object.keys(ids).forEach(k => {
+      const el = document.getElementById(ids[k]);
+      if (el) el.classList.toggle("on", which === k);
+    });
   }
 
   $("#home").onclick = e => { e.preventDefault(); home(); };
   const tabL = document.getElementById("tab-lessons");
   const tabG = document.getElementById("tab-geo");
+  const tabM = document.getElementById("tab-mystery");
   if (tabL) tabL.onclick = () => home();
   if (tabG) tabG.onclick = () => { if (window.Geo) window.Geo.open(); };
-  window.UF = { ding, soundBtn, esc, shuffle, advanceClickOk };
+  if (tabM) tabM.onclick = () => { if (window.Mystery) window.Mystery.open(); };
+  window.UF = { ding, soundBtn, esc, shuffle, advanceClickOk, setTab };
 
   // Screenshot / deep-link hooks. Do not steal a real in-progress session unless asked.
   const params = new URLSearchParams(location.search);
   const shot = params.get("shot");
   if (shot === "home") home();
   else if (shot === "lesson") startLesson(params.get("id") || "neuroplasticity");
+  else if (shot === "quiz") {
+    const lesson = LESSONS.find(l => l.id === (params.get("id") || "metacognition")) || LESSONS[0];
+    const session = { id: lesson.id, mode: "quiz", i: 0, answers: [], order: buildQuiz(lesson) };
+    showQuiz(lesson, session);
+  }
   else if (shot === "geo-step" || shot === "step") { if (window.Geo) window.Geo.open({ shot: "step", id: params.get("id") || "250" }); }
+  else if (shot === "geo-test" || shot === "test") { if (window.Geo) window.Geo.open({ shot: "test", cid: params.get("cid") || "eu", id: params.get("id") || "250" }); }
+  else if (shot === "mystery") { if (window.Mystery) window.Mystery.open({ shot: "board", unlock: ["intro"] }); }
+  else if (shot === "mystery-clue") { if (window.Mystery) window.Mystery.open({ shot: "clue", clue: "intro", unlock: ["intro","eu-1","eu-2"] }); }
   else if (shot === "geo" || shot === "map") { if (window.Geo) window.Geo.open({ shot: shot === "map" || params.get("map") ? "map" : (params.get("us") ? "us" : "hub") }); }
   else if (prog.resume && (prog.resume.id === "daily" || LESSONS.some(l => l.id === prog.resume.id))) {
     const r = prog.resume;

@@ -7,6 +7,11 @@ const LESSONS = [
     id: "metacognition",
     title: "Metacognition",
     blurb: "Notice your own thinking, catch mistakes, and learn more effectively.",
+    intro: "Metacognition is the habit of noticing and steering your own thinking: how you are approaching a problem, whether you actually understand it, and what to try next. It is less a talent you either have or don't have, and more a loop you can practice — plan, monitor, and evaluate — in class and in ordinary life.",
+    examples: [
+      { t: 'Testing yourself, not just rereading', b: 'In a well-known 2006 study by Roediger and Karpicke, students who closed their notes and tried to recall a passage later remembered more than students who spent the same time rereading it. The rereaders often felt more confident in the moment; the testers did better after a delay. Familiarity is not the same as being able to use an idea later.' },
+      { t: 'Exam wrappers after a test', b: "Some university courses, including work popularized at Carnegie Mellon, use short 'exam wrappers': after a test, students write what they studied, what kinds of mistakes they made, and what they will change next time. The point is not a new grade. It is a structured pause to notice which study methods actually helped." }
+    ],
     color: "sage",
     facts: [
       {
@@ -42,13 +47,20 @@ const LESSONS = [
       { q: "What is metacognition, in plain terms?", a: 1, o: ["Memorizing faster by repeating a list", "Noticing and managing your own thinking and learning", "A test that measures IQ", "Trusting the first idea that feels right"] },
       { q: "Which study habit usually builds longer-lasting memory?", a: 2, o: ["Rereading the chapter until it feels familiar", "Highlighting almost every sentence", "Closing the notes and trying to recall the ideas", "Studying only the night before"] },
       { q: "What does the plan–monitor–evaluate loop ask you to do while you work?", a: 0, o: ["Check whether your approach is actually making sense", "Copy a friend's method without thinking", "Ignore confusion until the end", "Race to finish before reviewing anything"] },
-      { q: "Why can rereading feel more effective than it is?", a: 3, o: ["It changes your DNA", "Teachers cannot tell the difference", "Familiar text is harder to see", "Familiarity can be mistaken for real recall"] }
+      { q: "Why can rereading feel more effective than it is?", a: 3, o: ["It changes your DNA", "Teachers cannot tell the difference", "Familiar text is harder to see", "Familiarity can be mistaken for real recall"] },
+      { q: "An exam wrapper is mainly used to:", a: 2, o: ["Replace the original exam with a new one", "Calculate a curve automatically", "Pause after a test and notice which study methods helped or did not", "Prove that rereading is always best"] },
+      { q: "In research comparing rereading with trying to recall the material, a delayed test usually favors:", a: 0, o: ["Retrieval practice — closing the notes and trying to remember", "Highlighting every sentence once", "Cramming only the night before", "Rereading until the page feels familiar"] }
     ]
   },
   {
     id: "bias",
     title: "Cognitive bias",
     blurb: "Mental shortcuts shape thinking and can sometimes lead to poor decisions.",
+    intro: 'The brain uses shortcuts, called heuristics, that usually save time and often work. A cognitive bias is a systematic tilt those shortcuts can produce — not proof that someone is unintelligent. The useful move is to know when to slow down, look for the base rate, and consider how you might be wrong.',
+    examples: [
+      { t: 'Anchoring on the first number', b: "In classic experiments by Tversky and Kahneman, a spun 'wheel of fortune' number still pulled people's later estimates toward it, even though the wheel was obviously irrelevant. The same tilt shows up when a high 'was' price makes a sale look better than it is, or when a first offer in a negotiation becomes the center of the conversation." },
+      { t: 'Why dramatic stories feel common', b: 'After a widely reported shark attack or plane crash, people often feel those events are more likely than they are. That is the availability heuristic: if an example comes to mind easily, it can feel frequent. Quieter, more common risks — such as ordinary car crashes in the United States — get less mental weight than they deserve.' }
+    ],
     color: "blue",
     facts: [
       {
@@ -84,13 +96,20 @@ const LESSONS = [
       { q: "What is a cognitive bias?", a: 2, o: ["A random guess with no pattern", "Proof that someone is unintelligent", "A systematic tilt that mental shortcuts can produce", "A medical diagnosis you either have or do not"] },
       { q: "Confirmation bias is the tendency to:", a: 0, o: ["Favor information that supports what you already believe", "Always change your mind when a friend disagrees", "Remember only numbers, never stories", "Ignore every source that agrees with you"] },
       { q: "You keep paying for a bad project because you have already spent so much. That is closest to:", a: 1, o: ["The availability heuristic", "The sunk cost fallacy", "Anchoring on a sale price", "Survivorship bias"] },
-      { q: "Why can news about plane crashes make flying feel more dangerous than it is, relative to driving?", a: 3, o: ["Planes are statistically the riskiest everyday transport in the U.S.", "Car crashes are rarely serious", "Anchoring always favors cars", "Memorable events are easier to recall than quieter, more common risks"] }
+      { q: "Why can news about plane crashes make flying feel more dangerous than it is, relative to driving?", a: 3, o: ["Planes are statistically the riskiest everyday transport in the U.S.", "Car crashes are rarely serious", "Anchoring always favors cars", "Memorable events are easier to recall than quieter, more common risks"] },
+      { q: "Anchoring is the tendency to:", a: 1, o: ["Ignore every number you hear", "Be pulled toward the first number you see, even if it is arbitrary", "Always choose the smallest price", "Remember only stories, never numbers"] },
+      { q: "Wald's advice about armor on returning bombers is a warning about:", a: 3, o: ["Confirmation bias in news feeds", "Credit-card interest", "Learning styles", "Survivorship bias: if you only study the ones that made it back, you miss the damage that sank the rest"] }
     ]
   },
   {
     id: "decisions",
     title: "Decision-making",
     blurb: "Compare choices, understand risk, and use a process you can trust.",
+    intro: 'Good decision-making is less about a perfect guess and more about a process you can trust: name the goal, list options, notice the trade-offs, and match the amount of care to how hard the choice is to undo. A careful process can still have a bad outcome; a careless one can get lucky. Over time, the process is what you can improve.',
+    examples: [
+      { t: 'If-then plans that actually get done', b: "The psychologist Peter Gollwitzer's research on implementation intentions shows that a specific plan — 'After lunch I will go to the library and write the first paragraph' — often works better than a vague intention to 'get started later.' Studies have used this kind of plan for health habits and for turning out to vote." },
+      { t: 'Imagine the plan has already failed', b: 'A premortem, a method popularized by Gary Klein, asks a team to pretend it is later, the project has failed, and to write down why. Hospitals, product teams, and other groups use versions of this to surface risks people would otherwise leave unspoken. It is cheaper than meeting the same problems after you have already begun.' }
+    ],
     color: "lavender",
     facts: [
       {
@@ -126,13 +145,19 @@ const LESSONS = [
       { q: "What is opportunity cost?", a: 1, o: ["A fee the bank charges for a transfer", "The value of the next-best option you give up", "The amount you have already spent", "A guaranteed profit"] },
       { q: "A premortem asks you to:", a: 2, o: ["Wait until after a failure to review it", "Ignore risks so you stay confident", "Imagine the plan has already failed and list why", "Choose the option with the best story"] },
       { q: "Why is it useful to separate reversible choices from hard-to-reverse ones?", a: 0, o: ["You can often decide easy-to-undo ones faster and take more care with costly ones", "Irreversible choices do not need thought", "All choices are equally easy to undo", "Reversible choices never matter"] },
-      { q: "What does 'start with the base rate' mean?", a: 3, o: ["Always copy the most confident person", "Use only your personal story", "Ignore data from the past", "Begin with how common this kind of case usually is, then update"] }
+      { q: "What does 'start with the base rate' mean?", a: 3, o: ["Always copy the most confident person", "Use only your personal story", "Ignore data from the past", "Begin with how common this kind of case usually is, then update"] },
+      { q: "An implementation intention is most like:", a: 2, o: ["Waiting to feel inspired", "A personality type", "A specific if-then plan, such as 'after lunch I will start the first paragraph'", "Choosing whatever option has the best story"] }
     ]
   },
   {
     id: "money",
     title: "Financial education",
     blurb: "How money works, how to manage it, and how to make better financial choices.",
+    intro: 'Financial education is about how money actually behaves: compound interest can grow savings or deepen unpaid debt, inflation changes what a dollar can buy, and a simple budget is a map of trade-offs rather than a punishment. The habits that matter most are often unglamorous: paying attention to interest, keeping a buffer for surprises, and not putting every hope in one place.',
+    examples: [
+      { t: 'Minimum payments and a long debt', b: 'U.S. consumer guidance, including from the Consumer Financial Protection Bureau, walks through how paying only the credit-card minimum keeps an account current but can leave a balance growing with interest for years. The due-date payment that avoids ordinary purchase interest is typically the full statement balance, not the minimum.' },
+      { t: 'The same groceries, a different price', b: 'Inflation is a general rise in prices. Official measures such as the U.S. Consumer Price Index track a basket of goods and services over time. If that basket costs more and the cash in a drawer does not increase, the drawer holds less purchasing power even though the numbers on the bills have not changed.' }
+    ],
     color: "sage",
     facts: [
       {
@@ -168,13 +193,20 @@ const LESSONS = [
       { q: "What is compound interest?", a: 2, o: ["A one-time bonus a bank pays for opening an account", "A government tax on all savings", "Interest earned on both the original amount and interest already added", "A fee for using a credit card abroad"] },
       { q: "The Rule of 72 is used to roughly estimate:", a: 0, o: ["How many years it takes for money to double at a given annual rate", "Your exact credit score", "The inflation rate next year", "How much tax you will owe"] },
       { q: "On a typical credit card, what usually avoids interest on ordinary purchases?", a: 1, o: ["Paying only the minimum each month", "Paying the full statement balance by the due date", "Using the card as often as possible", "Carrying a balance so the bank likes you"] },
-      { q: "Why does inflation matter even if the number printed on a dollar bill does not change?", a: 3, o: ["Inflation always raises your wages by the same amount", "Cash under a mattress is guaranteed to grow", "Prices cannot rise in the United States", "If prices rise, the same money buys less"] }
+      { q: "Why does inflation matter even if the number printed on a dollar bill does not change?", a: 3, o: ["Inflation always raises your wages by the same amount", "Cash under a mattress is guaranteed to grow", "Prices cannot rise in the United States", "If prices rise, the same money buys less"] },
+      { q: "Paying only the credit-card minimum usually:", a: 0, o: ["Keeps the account current but can let interest pile up for a long time", "Is the cheapest way to clear the debt", "Avoids all interest on ordinary purchases", "Has the same effect as paying the full statement balance"] },
+      { q: "If prices rise and the cash in a drawer does not, that cash has less:", a: 2, o: ["Face value on the bill itself", "Compound interest automatically", "Purchasing power", "Opportunity cost"] }
     ]
   },
   {
     id: "procrastination",
     title: "The science of procrastination",
     blurb: "Why we put things off, and what actually helps you start.",
+    intro: 'Procrastination is delaying a task despite expecting to be worse off for the delay. Research often treats it less as simple laziness and more as a short-term way of avoiding uncomfortable feelings, plus a tilt toward rewards that arrive now. Useful tools are small first steps and specific if-then plans, not a one-line cartoon of two brain regions at war.',
+    examples: [
+      { t: "A when-and-where plan beats 'I'll study more'", b: "Students who name a specific time and place to work — 'Thursday at 7 p.m. at my desk after dinner' — tend to start sooner than students who only promise to 'study more this week.' That is implementation intentions applied to delay: the cue is built in, so you do not have to wait for a better mood." },
+      { t: 'A smaller reward now versus a better one later', b: 'Present bias, or temporal discounting, is the tendency to overweight what is immediate. It is why a short video now can beat a clearer evening, and why a deadline that is still far away feels soft. Making the first step tiny, or making the later reward more visible, is a way of working with that tilt instead of only scolding it.' }
+    ],
     color: "blue",
     facts: [
       {
@@ -211,13 +243,19 @@ const LESSONS = [
       { q: "Research on procrastination most often describes it as:", a: 1, o: ["Proof that someone does not care about the goal", "Delaying a task despite expecting to be worse off, often to avoid uncomfortable feelings", "A rare medical condition with one cause", "The same thing as a carefully planned break"] },
       { q: "Present bias helps explain why:", a: 2, o: ["Deadlines never affect anyone", "People always prefer long-term rewards", "Relief right now can outweigh a later cost", "Calendars do not work for anyone"] },
       { q: "An implementation intention is:", a: 0, o: ["A specific if-then plan for when and how you will act", "A promise to feel more motivated someday", "A punishment after you miss a deadline", "A personality test"] },
-      { q: "Which statement is the more careful one?", a: 3, o: ["Procrastination is only laziness", "A simple amygdala-vs-prefrontal cartoon fully explains it", "You should wait for motivation before starting", "A tiny first step and an if-then plan are better supported than a one-line brain cartoon"] }
+      { q: "Which statement is the more careful one?", a: 3, o: ["Procrastination is only laziness", "A simple amygdala-vs-prefrontal cartoon fully explains it", "You should wait for motivation before starting", "A tiny first step and an if-then plan are better supported than a one-line brain cartoon"] },
+      { q: "A plan such as 'Thursday at 7 p.m. at my desk I will write the opening' is useful because:", a: 1, o: ["It guarantees motivation will arrive first", "It names a cue and a first step, so you do not have to wait for a better mood", "It proves procrastination is only laziness", "It replaces all deadlines"] }
     ]
   },
   {
     id: "neuroplasticity",
     title: "Neuroplasticity",
     blurb: "The brain changes through learning, practice, and experience — within real limits.",
+    intro: "Neuroplasticity is the brain's ability to change its structure and function with experience. Connections between neurons can strengthen or weaken, and practice can make a skill smoother. That is not the same as the myth that you use only 10% of your brain, and it is not a promise that any skill can be mastered overnight.",
+    examples: [
+      { t: 'London taxi drivers and The Knowledge', b: "In research led by Eleanor Maguire, licensed London taxi drivers — who spend years memorizing the city's streets, a training called The Knowledge — showed a larger posterior hippocampus, a region involved in spatial memory, than comparison groups. The difference was related to experience, not a simple party trick, and it is one careful example of a brain changing with a demanding skill." },
+      { t: 'Practice after a stroke', b: 'Constraint-induced movement therapy, studied in rehabilitation research, asks some stroke patients to use the weaker arm intensively while the stronger arm is held back for periods of practice. Many people can regain function this way. The lesson is not that the brain can do anything if you wish hard enough; it is that repeated, targeted practice can reorganize what the brain does.' }
+    ],
     color: "lavender",
     facts: [
       {
@@ -255,13 +293,19 @@ const LESSONS = [
       { q: "Neuroplasticity means:", a: 1, o: ["The brain is finished changing after age 10", "The brain can change its structure and function with experience", "You only use 10% of your brain", "Any skill can be mastered overnight"] },
       { q: "The claim that people use only 10% of their brain is:", a: 0, o: ["A myth; much of the brain is active, and small injuries can have large effects", "A proven fact from brain scans", "True for children but not adults", "The reason learning styles work"] },
       { q: "What does the evidence say about teaching to a visual/auditory/kinesthetic 'learning style'?", a: 3, o: ["It is the best-proven method in education", "Each person is born with only one style", "You should never use diagrams if you prefer words", "Preferences exist, but matching teaching to a preferred style has not been shown to improve learning"] },
-      { q: "Which of these is a well-supported way to help a new skill stick?", a: 2, o: ["Skipping sleep so you can practice longer", "Avoiding all feedback so you stay confident", "Practice with feedback, then get enough sleep", "Waiting until you feel naturally talented"] }
+      { q: "Which of these is a well-supported way to help a new skill stick?", a: 2, o: ["Skipping sleep so you can practice longer", "Avoiding all feedback so you stay confident", "Practice with feedback, then get enough sleep", "Waiting until you feel naturally talented"] },
+      { q: "Research on London taxi drivers who memorized the city's streets found:", a: 2, o: ["That people use only 10% of the brain", "That the brain stops changing after childhood", "Changes in a hippocampus region involved in spatial memory, related to that demanding experience", "That any skill can be mastered overnight"] }
     ]
   },
   {
     id: "epigenetics",
     title: "Epigenetics",
     blurb: "Lifestyle and environment can influence how genes are expressed — not rewrite your DNA sequence.",
+    intro: "Epigenetics is about chemical marks and other mechanisms that can change how genes are used without changing the DNA sequence itself. Lifestyle and environment can influence gene expression. That is interesting and real, and it is also a topic that gets overstated: everyday habits do not typically rewrite your DNA letters, and claims that your choices will rewrite your grandchildren's genes go further than the human evidence can safely carry.",
+    examples: [
+      { t: 'The Dutch Hunger Winter', b: 'During the famine in the Netherlands in the winter of 1944–45, people who were conceived or were early in gestation at the time later showed higher rates of some metabolic problems as adults. Researchers have also reported differences in DNA methylation in this group. That is evidence that a severe early environment can leave marks related to gene activity. It is not the same as changing the DNA sequence, and how far those effects reach into later generations in humans is still limited and debated.' },
+      { t: 'Identical twins who are not identical in every way', b: "Identical twins start with nearly the same DNA sequence, but their health and some epigenetic marks can diverge as they age and live different lives. That is a careful, everyday reminder that gene expression can change with experience and time without anyone 'rewriting the genome' in the loose, popular sense." }
+    ],
     color: "sage",
     facts: [
       {
@@ -295,13 +339,19 @@ const LESSONS = [
       { q: "Epigenetics is best described as:", a: 2, o: ["Permanently rewriting your DNA sequence with a good mood", "A proven way to pass any habit to your grandchildren", "Chemical marks that can change gene activity without changing the DNA sequence", "Proof that genes do not matter at all"] },
       { q: "Which statement is more accurate?", a: 0, o: ["Lifestyle and environment can influence gene expression; they do not typically rewrite the DNA sequence", "Eating one food will recode your genome in a week", "Identical twins never differ in gene activity", "Epigenetics means genes are a myth"] },
       { q: "Why is 'your habits will rewrite your grandchildren's genes' a shaky claim?", a: 1, o: ["Because epigenetics is not a real field", "Because human transgenerational epigenetic inheritance is limited and debated, and many marks are reset", "Because grandchildren do not have genes", "Because only exercise, not diet, could ever matter"] },
-      { q: "Identical twins can still differ in health over time partly because:", a: 3, o: ["They have completely different DNA sequences", "Genes never interact with the environment", "Epigenetics has been debunked", "Gene expression can diverge even when the DNA sequence is nearly the same"] }
+      { q: "Identical twins can still differ in health over time partly because:", a: 3, o: ["They have completely different DNA sequences", "Genes never interact with the environment", "Epigenetics has been debunked", "Gene expression can diverge even when the DNA sequence is nearly the same"] },
+      { q: "Studies of people conceived during the Dutch Hunger Winter are often cited because they suggest:", a: 0, o: ["A severe early environment can be linked to later health differences and some epigenetic marks, without changing the DNA sequence itself", "A famine rewrote the letter-by-letter DNA of every grandchild in the country", "Epigenetics is not a real field", "Identical twins never differ"] }
     ]
   },
   {
     id: "geopolitics",
     title: "Geopolitics",
     blurb: "How countries, power, money, resources, and events affect one another.",
+    intro: "Geopolitics is the study of how geography — coasts, rivers, chokepoints, resources, and neighbors — shapes power, trade, and conflict among countries. It is not a claim that maps cause everything, and it is not the same as a country's official talking points. A useful habit is to notice where goods and energy must pass, and how a change in one narrow place can be felt far away.",
+    examples: [
+      { t: 'When the Suez Canal was blocked', b: 'In March 2021, the container ship Ever Given ran aground in the Suez Canal and blocked the waterway for six days. A large share of Europe–Asia container traffic uses that canal. Ships waited or took the long route around Africa, and delays and costs were felt in countries that were not on the canal at all. That is a chokepoint in real life, not only on a map quiz.' },
+      { t: 'The Strait of Hormuz', b: "The Strait of Hormuz is a narrow passage at the mouth of the Persian Gulf. A large share of the world's seaborne oil typically passes through it. That is why tensions there matter to people who will never visit the strait: energy prices and shipping insurance can move when a narrow route is at risk." }
+    ],
     color: "blue",
     facts: [
       {
@@ -337,13 +387,19 @@ const LESSONS = [
       { q: "A chokepoint in geopolitics is:", a: 1, o: ["Any large desert", "A narrow passage that a lot of trade or energy must pass through", "A country's capital city", "A type of currency"] },
       { q: "Soft power is best described as:", a: 2, o: ["Only the use of military force", "A country's number of factories", "The ability to attract or persuade, for example through culture and diplomacy", "Printing as much money as possible"] },
       { q: "Why can a blocked canal raise prices in a country far away?", a: 0, o: ["Because supply chains and shipping routes connect distant markets", "Because every country uses the same currency", "Because maps cause inflation", "Because canals set income tax rates"] },
-      { q: "On a typical Mercator world map, Greenland looks huge compared with Africa. What is the more accurate size relationship?", a: 3, o: ["They are about the same area", "Greenland is several times larger than Africa", "Neither landmass has a measurable area", "Africa's area is about 14 times larger than Greenland's"] }
+      { q: "On a typical Mercator world map, Greenland looks huge compared with Africa. What is the more accurate size relationship?", a: 3, o: ["They are about the same area", "Greenland is several times larger than Africa", "Neither landmass has a measurable area", "Africa's area is about 14 times larger than Greenland's"] },
+      { q: "The 2021 grounding of the Ever Given in the Suez Canal is an example of:", a: 1, o: ["Soft power through film and food", "A chokepoint: a narrow route whose blockage delayed shipping and raised costs far away", "A local event with no effect on other countries", "A map projection that stretches Greenland"] }
     ]
   },
   {
     id: "thinking",
     title: "Thinking clearly",
     blurb: "Extra habits that travel with all of the topics above.",
+    intro: 'Thinking clearly is a set of habits for not being fooled — by a vivid story, a missing comparison, or a claim with no source you can check. Correlation is not causation; extreme results often move back toward average; and a bold post is still unverified until you can find a real source. These habits work on schoolwork, news, and viral lists alike.',
+    examples: [
+      { t: 'Ice cream and drowning', b: 'Ice cream sales and drowning deaths both tend to rise in summer. That is a real correlation, and it does not mean ice cream causes drowning. Heat and more time in the water are lurking variables. The useful move is to ask what else changed at the same time, not to stop at a shared pattern.' },
+      { t: 'John Snow and the Broad Street pump', b: "In 1854, during a cholera outbreak in London, John Snow mapped cases and found they clustered around a water pump on Broad Street. He did not stop at 'this neighborhood is unlucky.' He treated the pattern as a clue, gathered comparisons, and argued for a contaminated water source. It is a famous example of going past a correlation toward a cause you can actually test." }
+    ],
     color: "lavender",
     extra: true,
     facts: [
@@ -377,7 +433,9 @@ const LESSONS = [
       { q: "Why is 'correlation is not causation' useful?", a: 1, o: ["Because two things never rise at the same time", "Because a shared pattern does not, by itself, prove that one thing caused the other", "Because data never matter", "Because every correlation is fake"] },
       { q: "Regression to the mean means:", a: 2, o: ["Every skill gets worse with practice", "The average never changes", "Extreme results often move closer to average next time, even without a special cause", "Maps stretch countries near the poles"] },
       { q: "What is the careful takeaway about the Instagram Ad Astra list?", a: 0, o: ["The school was real, but the eight-topic syllabus is the post's framing, not a well-documented official curriculum", "The school never existed", "Every topic on the slides is a proven Ad Astra course", "Useful topics should be ignored if a post oversimplified them"] },
-      { q: "When a bold claim has no source you can check, the careful move is to:", a: 3, o: ["Share it because it sounds smart", "Assume Instagram verified it", "Treat it as true until proven false", "Treat it as unverified until you can find a real source"] }
+      { q: "When a bold claim has no source you can check, the careful move is to:", a: 3, o: ["Share it because it sounds smart", "Assume Instagram verified it", "Treat it as true until proven false", "Treat it as unverified until you can find a real source"] },
+      { q: "Ice cream sales and drowning deaths both rising in summer is a reminder that:", a: 3, o: ["Ice cream causes drowning", "Summer cannot be measured", "Correlations are always fake", "A shared pattern can come from a lurking variable, such as heat, rather than one thing causing the other"] },
+      { q: "John Snow's 1854 cholera map is a useful example because he:", a: 0, o: ["Used a pattern of cases as a clue and looked for a testable cause, the contaminated pump", "Proved that maps never help in an outbreak", "Stopped at 'this neighborhood is unlucky'", "Showed that correlation is the same as causation"] }
     ]
   }
 ];
