@@ -197,7 +197,13 @@ for (const c of GeoData.CONTINENTS) {
 // Zoom clamps: min is the fitted view, max is 7x, pan stays in bounds
 assert.ok(geoSrc.includes("const ZMAX = 7") && geoSrc.includes("function clampViewBox"), "zoom clamps must live in geo.js");
 assert.ok(/Fit map to the region/.test(geoSrc) && /id="zRst"/.test(geoSrc), "Fit button");
-assert.ok(/Take a test/.test(geoSrc) && /path\.geo\.test|class="test"/.test(css + geoSrc), "region tests");
+assert.ok(/Take the test/.test(geoSrc) && /path\.geo\.test|class="test"/.test(css + geoSrc), "region tests");
+assert.ok(/function startStudy/.test(geoSrc) && /function placeMapLabels/.test(geoSrc) && /geo-label/.test(css), "labeled study maps");
+assert.ok(/Mastered/.test(geoSrc) && /testBestPct/.test(geoSrc));
+assert.ok(/Practice step by step/.test(geoSrc), "optional step-by-step practice remains");
+["na","sa","eu","af","as","oc","us"].forEach(cid => {
+  assert.ok(geoSrc.includes("startStudy") && GeoData.CONTINENTS.some(c => c.id === cid), "study flow covers " + cid);
+});
 function clampViewBox(vb, W, H, zMax) {
   const minW = W / zMax, maxW = W;
   let w = Math.max(minW, Math.min(maxW, vb.w));
@@ -224,10 +230,11 @@ const cids = ["na","sa","eu","af","as","oc","us"];
 cids.forEach(cid => {
   const group = Mystery.clues.filter(c => c.unlock && (c.unlock.cid === cid));
   assert.ok(group.length === 3, "each region should have 3 clues, " + cid + " has " + group.length);
-  assert.ok(group.some(c => c.unlock.type === "steps" && c.unlock.n === 1));
-  assert.ok(group.some(c => c.unlock.type === "steps" && c.unlock.n === 4));
-  assert.ok(group.some(c => c.unlock.type === "test"));
+  assert.ok(group.some(c => c.unlock.type === "score" && c.unlock.pct === 70), cid + " 70% clue");
+  assert.ok(group.some(c => c.unlock.type === "score" && c.unlock.pct === 90), cid + " 90% clue");
+  assert.ok(group.some(c => c.unlock.type === "score" && c.unlock.pct === 100), cid + " 100% clue");
 });
+assert.ok(/70%/.test(Mystery.how) && /100%/.test(Mystery.how) && /mastered/i.test(Mystery.how));
 assert.ok(Mystery.clues.filter(c => c.unlock && c.unlock.type === "finale").length >= 3, "finale chapters");
 assert.ok(Mystery.suspects.length >= 4);
 assert.ok(!/ellingham|stevie bell|cassie hobbes|naturals|fbi academy/i.test(JSON.stringify(Mystery)), "must not copy those series");

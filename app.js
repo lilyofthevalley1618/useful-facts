@@ -438,10 +438,11 @@
     showQuiz(lesson, session);
   }
   else if (shot === "geo-step" || shot === "step") { if (window.Geo) window.Geo.open({ shot: "step", id: params.get("id") || "250" }); }
+  else if (shot === "geo-study" || shot === "study") { if (window.Geo) window.Geo.open({ shot: "study", cid: params.get("cid") || "eu" }); }
   else if (shot === "geo-test" || shot === "test") { if (window.Geo) window.Geo.open({ shot: "test", cid: params.get("cid") || "eu", id: params.get("id") || "250" }); }
   else if (shot === "mystery") { if (window.Mystery) window.Mystery.open({ shot: "board", unlock: ["intro"] }); }
   else if (shot === "mystery-clue") { if (window.Mystery) window.Mystery.open({ shot: "clue", clue: "intro", unlock: ["intro","eu-1","eu-2"] }); }
-  else if (shot === "geo" || shot === "map") { if (window.Geo) window.Geo.open({ shot: shot === "map" || params.get("map") ? "map" : (params.get("us") ? "us" : "hub") }); }
+  else if (shot === "geo" || shot === "map") { if (window.Geo) window.Geo.open({ shot: (shot === "map" || params.get("map") || params.get("cid")) ? "study" : (params.get("us") ? "us" : "hub"), cid: params.get("cid") || (params.get("us") ? "us" : "eu") }); }
   else if (prog.resume && (prog.resume.id === "daily" || LESSONS.some(l => l.id === prog.resume.id))) {
     const r = prog.resume;
     if (r.id === "daily" && r.order) showDaily(r);

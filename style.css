@@ -307,6 +307,20 @@ input[type=file]{display:none}
   position:relative;overflow:hidden;touch-action:none;
   min-height:16rem;height:min(62vh, 560px, max(18rem, 54vw));
 }
+.map-frame.study{
+  min-height:28rem;height:min(82vh, 920px, max(28rem, 72vw));
+}
+text.geo-label{
+  font-family:var(--font-body);font-weight:800;
+  fill:var(--ink);stroke:#FFF8EB;stroke-width:4.2px;stroke-linejoin:round;
+  paint-order:stroke fill;pointer-events:none;
+}
+path.geo-leader{
+  stroke:var(--ink);stroke-width:1;fill:none;opacity:.72;
+  pointer-events:none;vector-effect:non-scaling-stroke;
+}
+.geo-poster.mastered{background:var(--ok-bg);box-shadow:6px 6px 0 #D4A534}
+
 .map-frame svg{display:block;width:100%;height:100%;background:transparent}
 path.geo{fill:var(--yellow);stroke:var(--ink);stroke-width:0.6;cursor:pointer;vector-effect:non-scaling-stroke}
 path.geo:hover,path.geo:focus{fill:var(--peach);outline:none}

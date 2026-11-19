@@ -35,19 +35,26 @@
   function passedSteps(cid) {
     return (window.Geo && window.Geo.passedSteps) ? window.Geo.passedSteps(cid) : 0;
   }
-  function testPassed(cid) {
-    return (window.Geo && window.Geo.testPassed) ? window.Geo.testPassed(cid) : false;
+  function testScore(cid) {
+    return (window.Geo && window.Geo.testBestPct) ? window.Geo.testBestPct(cid) : 0;
   }
-  function allTestsPassed() {
+  function testPassed(cid) {
+    return testScore(cid) >= 90;
+  }
+  function regionMastered(cid) {
+    return (window.Geo && window.Geo.mastered) ? window.Geo.mastered(cid) : testScore(cid) >= 100;
+  }
+  function allMastered() {
     const list = (window.GeoData && window.GeoData.CONTINENTS) || [];
-    return list.length > 0 && list.every(c => testPassed(c.id));
+    return list.length > 0 && list.every(c => regionMastered(c.id));
   }
   function meets(clue) {
     const u = clue.unlock || { type: "free" };
     if (u.type === "free") return true;
-    if (u.type === "steps") return passedSteps(u.cid) >= (u.n || 1);
-    if (u.type === "test") return testPassed(u.cid);
-    if (u.type === "finale") return allTestsPassed();
+    if (u.type === "score") return testScore(u.cid) >= (u.pct || 0);
+    if (u.type === "steps") return testScore(u.cid) >= ((u.n || 1) <= 1 ? 70 : 90);
+    if (u.type === "test") return testScore(u.cid) >= 90;
+    if (u.type === "finale") return allMastered();
     return false;
   }
   function availableIds() {
@@ -103,16 +110,18 @@
   }
   function unlockHint(clue) {
     const u = clue.unlock || {};
+    if (u.type === "score") {
+      const have = testScore(u.cid);
+      return `${clue.teaser || ""} Currently ${have}% on the ${continentName(u.cid)} test (need ${u.pct}%).`;
+    }
     if (u.type === "steps") {
-      const n = u.n || 1;
-      const have = passedSteps(u.cid);
-      const word = n === 1 ? "quiz" : "quizzes";
-      return `${clue.teaser || ""} Currently ${have}/${n} ${continentName(u.cid)} learn-path ${word} passed at 90%.`;
+      const need = (u.n || 1) <= 1 ? 70 : 90;
+      return `${clue.teaser || ""} Currently ${testScore(u.cid)}% on the ${continentName(u.cid)} test (need ${need}%).`;
     }
     if (u.type === "test") {
-      return `${clue.teaser || ""} Pass the ${continentName(u.cid)} region test at 90% to open this folder.`;
+      return `${clue.teaser || ""} Score 90% on the ${continentName(u.cid)} test to open this folder. Currently ${testScore(u.cid)}%.`;
     }
-    if (u.type === "finale") return clue.teaser || "The last folders open when every region's test has been passed at 90%.";
+    if (u.type === "finale") return clue.teaser || "The last folders open when every region is mastered at 100%.";
     return clue.teaser || "Locked.";
   }
 

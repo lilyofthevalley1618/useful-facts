@@ -163,8 +163,21 @@
     return geo.tests[cid];
   }
   function testPassed(cid) {
+    return testBestPct(cid) >= 90;
+  }
+  function testBestPct(cid) {
     const best = testRec(cid).best;
-    return !!(best && best.n && didPass(best.right, best.n));
+    if (!best || !best.n) return 0;
+    if (typeof best.pct === "number") return best.pct;
+    return Math.round(best.right / best.n * 100);
+  }
+  function mastered(cid) {
+    const best = testRec(cid).best;
+    return !!(best && best.n && best.right >= best.n);
+  }
+  function allMastered() {
+    const list = GD().CONTINENTS || [];
+    return list.length > 0 && list.every(c => mastered(c.id));
   }
   function continentItems(cid) {
     return (GD().continentItems && GD().continentItems(cid)) || [];
@@ -386,8 +399,8 @@
   function open(opts) {
     setTab("geo");
     const shot = opts && opts.shot;
-    if (shot === "map") return startLearn("eu", { shot: true });
-    if (shot === "us") return startLearn("us", { shot: true });
+    if (shot === "map" || shot === "study") return startStudy(opts.cid || "eu", { shot: true });
+    if (shot === "us") return startStudy("us", { shot: true });
     if (shot === "test") return startRegionTest(opts.cid || "eu", { shot: true, preview: opts.id || "250" });
     if (shot === "step") {
       const id = (opts && opts.id) || "250";
@@ -397,15 +410,16 @@
       if (idx < 0) idx = 0;
       return startPathLesson(cid, idx, { shot: true });
     }
-    if (shot === "region") return regionHome(opts.cid || "eu");
+    if (shot === "region") return startStudy(opts.cid || "eu", { shot: true });
     hub();
   }
 
   function testLine(cid) {
     const t = testRec(cid);
-    if (t.best && t.best.n) return `Best test ${t.best.pct}% (${t.best.right}/${t.best.n}).`;
-    if (t.last && t.last.n) return `Last test ${t.last.pct}%.`;
-    return "No test yet — you can take one anytime.";
+    if (mastered(cid)) return "Mastered · 100%.";
+    if (t.best && t.best.n) return `Best test ${t.best.pct}% (${t.best.right}/${t.best.n}). Retake until you reach 100%.`;
+    if (t.last && t.last.n) return `Last test ${t.last.pct}%. Retake until you reach 100%.`;
+    return "Study the labeled map, then take the test until you score 100%.";
   }
   function pathLine(cid) {
     const p = pathRec(cid);
@@ -421,22 +435,60 @@
     advanceFn = null;
     const cards = (GD().CONTINENTS || []).map(c => {
       const us = c.id === "us" ? " us-choice" : "";
-      return `<button class="geo-poster${us}" data-cid="${esc(c.id)}">
-        <p class="kicker" style="justify-content:flex-start;margin:0 0 .25rem">${c.id === "us" ? "Separate path" : "Continent"}</p>
-        <h2>${esc(c.name)}</h2>
+      const master = mastered(c.id) ? " mastered" : "";
+      const kicker = mastered(c.id) ? "Mastered" : (c.id === "us" ? "U.S. map" : "Continent");
+      const seal = mastered(c.id) ? `<span class="done-seal">Mastered</span>` : "";
+      return `<button class="geo-poster${us}${master}" data-cid="${esc(c.id)}">
+        <p class="kicker" style="justify-content:flex-start;margin:0 0 .25rem">${esc(kicker)}</p>
+        <h2>${esc(c.name)}${seal}</h2>
         <p>${esc(c.blurb)}</p>
-        <p style="margin-top:.45rem">${esc(pathLine(c.id))} ${esc(testLine(c.id))}</p>
+        <p style="margin-top:.45rem">${esc(testLine(c.id))}</p>
       </button>`;
     }).join("");
     app().innerHTML = `
       <section class="cover">
         <p class="kicker">A practice atlas</p>
         <h1>Geography</h1>
-        <p class="cover-lead">Pick any region to start. Every continent and U.S. States are open from the beginning. Inside a region, learn one well-known place at a time on a map fitted to that region; a short quiz at 90% unlocks the next. You can also take a test of the whole region whenever you like.</p>
+        <p class="cover-lead">Pick any region to start. Every continent and U.S. States are open. You’ll get a large labeled map to study and memorize, then a test of every place. Retake the test until you score 100% to mark the region Mastered. Mystery folders open at 70%, 90%, and 100%.</p>
       </section>
       <div class="geo-hub-grid geo-hub-7">${cards}</div>
       <p class="muted" style="margin-top:1.2rem">Good work here also opens folders in the Mystery tab. Maps are from Natural Earth (public domain) and the U.S. Census Bureau, bundled here via world-atlas and us-atlas. Made with Natural Earth.</p>`;
-    app().querySelectorAll(".geo-poster").forEach(b => b.onclick = () => regionHome(b.dataset.cid));
+    app().querySelectorAll(".geo-poster").forEach(b => b.onclick = () => startStudy(b.dataset.cid));
+  }
+
+
+  async function startStudy(cid, extra) {
+    setTab("geo");
+    advanceFn = null;
+    const shot = extra && extra.shot;
+    const kind = kindOf(cid);
+    const title = continentName(cid);
+    const loc = kind === "us" ? "state" : "country";
+    const nItems = continentItems(cid).length;
+    const resumeTest = !shot && geo.resume && geo.resume.type === "test" && geo.resume.cid === cid && typeof geo.resume.i === "number";
+    const testBtn = resumeTest ? "Resume test" : "Take the test";
+    const master = mastered(cid);
+    app().innerHTML = `${nav("")}<p class="muted">Loading the map…</p>`;
+    $("#h").onclick = hub;
+    let topo;
+    try { topo = await loadTopo(kind); }
+    catch (err) { app().innerHTML = `${nav("")}<p>Could not load the map. ${esc(err.message)}</p>`; $("#h").onclick = hub; return; }
+    app().innerHTML = `
+      ${nav("")}
+      <p class="kicker">${esc(title)} · Study map</p>
+      <h1 style="font-size:clamp(2rem,6.5vw,3.6rem);margin:0 0 .35rem">${esc(title)}${master ? ` <span class="done-seal">Mastered</span>` : ""}</h1>
+      <p class="muted" style="margin-top:0">This is a large labeled map of all ${nItems} ${kind === "us" ? "states" : "countries"} in ${esc(title)}. Study it and try to memorize the names. Tiny places have a leader line or callout. Use + and − to zoom, and Fit to return to this view. Then take the test — you can retake until you score 100%.</p>
+      <p class="muted">${esc(testLine(cid))}</p>
+      <div class="map-frame study" id="map"></div>
+      <div class="actions" style="margin-top:.9rem">
+        <button id="test">${esc(testBtn)}</button>
+        <button class="ghost" id="steps">Practice step by step</button>
+      </div>
+      <p class="muted" style="margin-top:.7rem">The step-by-step path is optional practice, one ${loc} at a time.</p>`;
+    $("#h").onclick = hub;
+    if ($("#test")) $("#test").onclick = () => startRegionTest(cid, resumeTest ? { resume: true } : {});
+    if ($("#steps")) $("#steps").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); regionHome(cid); };
+    new MapView($("#map"), { kind, topo, continent: cid, labels: true });
   }
 
   function regionHome(cid) {
@@ -469,10 +521,10 @@
     app().innerHTML = `
       ${nav("")}
       <section class="cover">
-        <p class="kicker">${esc(title)} · Open from the start</p>
+        <p class="kicker">${esc(title)} · Step-by-step practice</p>
         <h1 style="font-size:clamp(2rem,6.5vw,3.6rem)">${esc(title)}</h1>
         <p class="cover-lead">${esc(head)}</p>
-        <p class="muted">The map stays fitted to ${esc(title)}. Use + and − to zoom in, and Fit to return; you cannot shrink smaller than this view. Pass a 3–5 question quiz at 90% to unlock the next step. Take a test anytime on all ${nItems} ${loc} — 90% is a high score, and your best is saved. Passing steps and tests also opens Mystery folders.</p>
+        <p class="muted">Optional practice, one place at a time, on a map fitted to ${esc(title)}. Pass a short quiz at 90% to unlock the next step. The main way to learn this region is still the labeled study map and the full test.</p>
         <p class="muted">${esc(testLine(cid))}</p>
       </section>
       <div class="step-pips" id="pips">${pips.join("")}</div>
@@ -489,7 +541,8 @@
           <button class="alt" id="name">Name it</button>
         </div>
       </div>`;
-    $("#h").onclick = hub;
+    $("#h").onclick = () => startStudy(cid);
+    $("#h").textContent = "Back to the map";
     if ($("#go")) $("#go").onclick = () => beginStep(cid, p.next);
     $("#test").onclick = () => startRegionTest(cid, resumeTest ? { resume: true } : {});
     $("#learn").onclick = () => startLearn(cid);
@@ -881,30 +934,33 @@
       save();
     }
     const added = shot ? [] : afterGeoProgress();
-    const passed = didPass(right, n);
     const best = testRec(cid).best;
     const bestLine = best && best.pct !== pct ? ` Best so far is ${best.pct}%.` : "";
-    const passLine = passed
-      ? " That’s a high score (90% or better), so this region’s test folder can open in Mystery."
-      : ` You need ${passNeed(n)}/${n} (90%) for a high score and the Mystery folder. You can try again anytime.`;
+    const won = n > 0 && right >= n;
+    let passLine;
+    if (won) passLine = " That’s 100% — this region is now marked Mastered on the picker. A Mystery folder can open at 100%.";
+    else if (pct >= 90) passLine = " So close. Retake until you get every one. Mystery folders open at 70%, 90%, and 100% (Mastered).";
+    else if (pct >= 70) passLine = " Nice work — a Mystery folder can open at 70%. Keep going for 90% and Mastered at 100%.";
+    else passLine = " Study the labeled map again and retake until you can do it with 100% accuracy. Your best score is saved.";
     app().innerHTML = `
       ${nav("")}
       <section class="panel">
-        <p class="kicker">${esc(continentName(cid))} test</p>
+        <p class="kicker">${esc(continentName(cid))} test${won ? " · Mastered" : ""}</p>
         <div class="score-xl">${pct}%</div>
         <p>You got <b>${right}/${n}</b>.${esc(bestLine)}${passLine}</p>
         <div class="actions" style="justify-content:center;margin-top:1rem">
-          <button id="again">Take the test again</button>
-          <button class="alt" id="h2">Region home</button>
+          ${won ? "" : `<button id="again">Take the test again</button>`}
+          <button class="${won ? "" : "alt"}" id="h2">Back to the map</button>
+          ${won ? `<button class="alt" id="again">Take the test again</button>` : ""}
         </div>
       </section>`;
-    $("#h").onclick = $("#h2").onclick = () => regionHome(cid);
-    $("#again").onclick = () => startRegionTest(cid);
+    $("#h").onclick = $("#h2").onclick = () => startStudy(cid);
+    if ($("#again")) $("#again").onclick = () => startRegionTest(cid);
     attachMysteryToast(added);
   }
 
   function challengeHome(cid) {
-    return regionHome(cid);
+    return startStudy(cid);
   }
 
   function clipLon(feature, maxLon, d3) {
@@ -921,6 +977,21 @@
     if (keep.length === 1) return { type: "Feature", properties: feature.properties, geometry: { type: "Polygon", coordinates: keep[0] } };
     return { type: "Feature", properties: feature.properties, geometry: { type: "MultiPolygon", coordinates: keep } };
   }
+  function clipToLonLat(feature, box, d3) {
+    const west = box[0], south = box[1], east = box[2], north = box[3];
+    const g = feature.geometry;
+    if (!g) return feature;
+    const polys = g.type === "Polygon" ? [g.coordinates] : (g.type === "MultiPolygon" ? g.coordinates : []);
+    const keep = [];
+    polys.forEach(coords => {
+      const feat = { type: "Feature", geometry: { type: "Polygon", coordinates: coords } };
+      const c = d3.geoCentroid(feat);
+      if (Number.isFinite(c[0]) && c[0] >= west && c[0] <= east && c[1] >= south && c[1] <= north) keep.push(coords);
+    });
+    if (!keep.length) return feature;
+    if (keep.length === 1) return { type: "Feature", properties: feature.properties, geometry: { type: "Polygon", coordinates: keep[0] } };
+    return { type: "Feature", properties: feature.properties, geometry: { type: "MultiPolygon", coordinates: keep } };
+  }
   function fitShape(f, cid, kind, d3) {
     const it = itemForFeat(kind, f);
     if (cid === "eu") {
@@ -928,8 +999,158 @@
       if (it && it.id === "643") return clipLon(base, 60, d3);
       return base;
     }
-    if (cid === "na" || cid === "oc" || cid === "us") return f;
+    if (cid === "na") return clipToLonLat(f, [-180, 7, -50, 72], d3);
+    if (cid === "oc") return f;
+    if (cid === "us") return f;
     return mainland(f, d3);
+  }
+
+
+  function labelLines(name) {
+    const n = String(name || "");
+    if (n.length <= 13) return [n];
+    const parts = n.split(" ");
+    if (parts.length === 1) return n.length > 16 ? [n.slice(0, 12) + "…"] : [n];
+    let best = 0, bestScore = 1e9;
+    for (let i = 1; i < parts.length; i++) {
+      const a = parts.slice(0, i).join(" "), b = parts.slice(i).join(" ");
+      const score = Math.abs(a.length - b.length) + (Math.max(a.length, b.length) > 16 ? 8 : 0);
+      if (score < bestScore) { bestScore = score; best = i; }
+    }
+    return [parts.slice(0, best).join(" "), parts.slice(best).join(" ")];
+  }
+  function textWidth(lines, fs) {
+    const longest = Math.max.apply(null, lines.map(l => l.length));
+    return longest * fs * 0.62 + 4;
+  }
+  function boxesOverlap(a, b, gap) {
+    gap = gap || 2;
+    return !(a.x + a.w + gap <= b.x || b.x + b.w + gap <= a.x || a.y + a.h + gap <= b.y || b.y + b.h + gap <= a.y);
+  }
+  function placeMapLabels(g, entries, W, H) {
+    const NS = "http://www.w3.org/2000/svg";
+    const placed = [];
+    const layer = document.createElementNS(NS, "g");
+    layer.setAttribute("class", "geo-labels");
+    layer.setAttribute("pointer-events", "none");
+    function fits(box) {
+      if (box.x < 2 || box.y < 2 || box.x + box.w > W - 2 || box.y + box.h > H - 2) return false;
+      return !placed.some(o => boxesOverlap(box, o, 3));
+    }
+    function addText(lines, x, y, anchor, fs) {
+      const el = document.createElementNS(NS, "text");
+      el.setAttribute("class", "geo-label");
+      el.setAttribute("x", x);
+      el.setAttribute("y", y);
+      el.setAttribute("text-anchor", anchor || "middle");
+      el.setAttribute("font-size", fs);
+      if (lines.length === 1) {
+        el.textContent = lines[0];
+      } else {
+        lines.forEach((ln, i) => {
+          const ts = document.createElementNS(NS, "tspan");
+          ts.setAttribute("x", x);
+          ts.setAttribute("dy", i === 0 ? "0" : String(fs * 1.12));
+          ts.textContent = ln;
+          el.appendChild(ts);
+        });
+      }
+      layer.appendChild(el);
+      return el;
+    }
+    function addLeader(x1, y1, x2, y2) {
+      const ln = document.createElementNS(NS, "path");
+      ln.setAttribute("class", "geo-leader");
+      ln.setAttribute("d", `M${x1} ${y1} L${x2} ${y2}`);
+      layer.appendChild(ln);
+    }
+    const leftover = [];
+    // Large places first: try a label in the interior.
+    const byArea = entries.slice().sort((a, b) => b.area - a.area);
+    byArea.forEach(e => {
+      const fs = e.area > 9000 ? 16 : (e.area > 2500 ? 14 : 12.5);
+      e.fs = fs;
+      e.lines = labelLines(e.name);
+      e.tw = textWidth(e.lines, fs);
+      e.th = e.lines.length * fs * 1.15;
+      const roomy = e.bw > e.tw + 10 && e.bh > e.th + 8 && e.area > 700;
+      const box = { x: e.cx - e.tw / 2, y: e.cy - e.th / 2 + 3, w: e.tw, h: e.th };
+      if (roomy && fits(box)) {
+        addText(e.lines, e.cx, e.cy + fs * 0.35, "middle", fs);
+        placed.push(box);
+        e.done = true;
+      } else leftover.push(e);
+    });
+    // Small / crowded places: try a ring of callout positions, then gutters.
+    const dirs = [];
+    for (let a = 0; a < 16; a++) dirs.push((a * 22.5 + 10) * Math.PI / 180);
+    const still = [];
+    leftover.sort((a, b) => a.area - b.area);
+    leftover.forEach(e => {
+      let found = null;
+      const radii = [18, 28, 40, 54, 70, 88, 108, 130];
+      for (let i = 0; i < radii.length && !found; i++) {
+        const r = radii[i];
+        for (let d = 0; d < dirs.length && !found; d++) {
+          const ang = dirs[(d + (e.cx > W * 0.55 ? 0 : 4)) % dirs.length];
+          const lx = e.cx + Math.cos(ang) * r;
+          const ly = e.cy + Math.sin(ang) * r;
+          const right = Math.cos(ang) >= 0;
+          const anchor = right ? "start" : "end";
+          const pad = 5;
+          const box = {
+            x: right ? lx + pad : lx - pad - e.tw,
+            y: ly - e.th / 2,
+            w: e.tw,
+            h: e.th
+          };
+          if (fits(box)) found = { box, lx, ly, anchor, right };
+        }
+      }
+      if (found) {
+        const edgeX = found.right ? found.box.x : found.box.x + found.box.w;
+        const edgeY = found.box.y + found.box.h * 0.55;
+        addLeader(e.cx, e.cy, edgeX, edgeY);
+        addText(e.lines, found.right ? found.box.x : found.box.x + found.box.w, found.box.y + e.fs * 0.85, found.anchor, e.fs);
+        placed.push(found.box);
+        e.done = true;
+      } else still.push(e);
+    });
+    // Last resort: stack remaining labels in the left or right margin.
+    const left = still.filter(e => e.cx < W / 2).sort((a, b) => a.cy - b.cy);
+    const right = still.filter(e => e.cx >= W / 2).sort((a, b) => a.cy - b.cy);
+    function stack(list, side) {
+      const margin = 4;
+      let y = 8;
+      list.forEach(e => {
+        const box = {
+          x: side === "left" ? margin : W - margin - e.tw,
+          y: Math.max(y, Math.min(H - e.th - 4, e.cy - e.th / 2)),
+          w: e.tw,
+          h: e.th
+        };
+        // Walk down until free or off the page.
+        let guard = 0;
+        while (!fits(box) && box.y + box.h < H - 2 && guard++ < 80) box.y += e.th + 3;
+        if (!fits(box)) {
+          box.y = 8;
+          while (!fits(box) && box.y + box.h < H - 2) box.y += e.th + 3;
+        }
+        if (!fits(box)) return;
+        const anchor = side === "left" ? "start" : "end";
+        const tx = side === "left" ? box.x : box.x + box.w;
+        const ty = box.y + e.fs * 0.85;
+        const edgeX = side === "left" ? box.x + box.w : box.x;
+        addLeader(e.cx, e.cy, edgeX, box.y + box.h * 0.55);
+        addText(e.lines, tx, ty, anchor, e.fs);
+        placed.push(box);
+        y = box.y + box.h + 3;
+        e.done = true;
+      });
+    }
+    stack(left, "left");
+    stack(right, "right");
+    g.appendChild(layer);
   }
 
   const ZMAX = 7;
@@ -942,7 +1163,9 @@
     this.features = feats(opts.topo, opts.kind);
     this.onTap = opts.onTap || (() => {});
     this.locked = false;
-    const W = 1000, H = 560;
+    const labeled = !!opts.labels;
+    const W = labeled ? 1280 : 1000;
+    const H = labeled ? 860 : 560;
     this.vb = { x: 0, y: 0, w: W, h: H };
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -983,8 +1206,16 @@
       });
       if (!fitSet.length) fitSet = all;
     }
-    const pad = 16;
     const cid = opts.continent || null;
+    let pad = 16;
+    if (labeled) {
+      pad = 56;
+      if (cid === "oc") pad = 62;
+      if (cid === "na") pad = 58;
+      if (cid === "us") pad = 48;
+      if (cid === "eu" || cid === "as" || cid === "af") pad = 58;
+    }
+    if (cid === "oc" && proj.rotate) proj.rotate([-155, 0]);
     const fitFC = {
       type: "FeatureCollection",
       features: fitSet.map(f => cid ? fitShape(f, cid, opts.kind, d3) : mainland(f, d3))
@@ -997,7 +1228,8 @@
     const paths = {};
     const drawSet = (opts.continent || (opts.fitIds && opts.fitIds.length) || (opts.region && opts.region !== "All")) ? fitSet : all;
     drawSet.forEach(f => {
-      const d = this.path(f);
+      const drawn = cid ? fitShape(f, cid, opts.kind, d3) : f;
+      const d = this.path(drawn);
       if (!d) return;
       const id = featId(f);
       const it = itemForFeat(opts.kind, f);
@@ -1010,9 +1242,9 @@
       g.appendChild(el);
       paths[el.dataset.id] = paths[el.dataset.id] || [];
       paths[el.dataset.id].push(el);
-      const b = this.path.bounds(f);
+      const b = this.path.bounds(drawn);
       const bw = b[1][0] - b[0][0], bh = b[1][1] - b[0][1];
-      const c = this.path.centroid(f);
+      const c = this.path.centroid(drawn);
       if (it && Number.isFinite(c[0]) && (bw < 14 || bh < 14 || bw * bh < 120)) {
         const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         hit.setAttribute("class", "hit");
@@ -1024,6 +1256,33 @@
       }
     });
     this.paths = paths;
+
+    if (labeled) {
+      const labelAt = { "643": [40, 55] }; // European Russia, near Moscow, reads better than the raw centroid
+      const seenId = new Set();
+      const labelEntries = [];
+      drawSet.forEach(f => {
+        const it = itemForFeat(opts.kind, f);
+        if (!it || seenId.has(it.id)) return;
+        const shape = cid ? fitShape(f, cid, opts.kind, d3) : f;
+        let c = this.path.centroid(shape);
+        const b = this.path.bounds(shape);
+        if (labelAt[it.id] && this.proj) {
+          const p = this.proj(labelAt[it.id]);
+          if (p && Number.isFinite(p[0])) c = p;
+        }
+        if (!Number.isFinite(c[0]) || !Number.isFinite(c[1])) {
+          c = [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2];
+        }
+        if (!Number.isFinite(c[0])) return;
+        seenId.add(it.id);
+        const cx = Math.max(8, Math.min(W - 8, c[0]));
+        const cy = Math.max(8, Math.min(H - 8, c[1]));
+        const bw = b[1][0] - b[0][0], bh = b[1][1] - b[0][1];
+        labelEntries.push({ id: it.id, name: it.name, cx, cy, bw, bh, area: Math.max(0, bw * bh) });
+      });
+      placeMapLabels(g, labelEntries, W, H);
+    }
 
     const tap = id => { if (!self.locked && id) self.onTap(id); };
     g.addEventListener("click", e => {
@@ -1271,7 +1530,7 @@
           <button class="alt" id="h2">Region home</button>
         </div>
       </section>`;
-    $("#h").onclick = $("#h2").onclick = () => regionHome(session.cid);
+    $("#h").onclick = $("#h2").onclick = () => startStudy(session.cid);
     $("#again").onclick = () => startPractice(session.cid, session.mode);
   }
 
@@ -1280,6 +1539,6 @@
     exportState: () => geo,
     importState: (data) => { if (data && typeof data === "object") { geo = hydrate(data); save(); } },
     weight, pickSession, keyFor, SESSION_N, list, passNeed, didPass, pathRec,
-    passedSteps, testPassed, testRec, kindOf, continentName
+    passedSteps, testPassed, testBestPct, mastered, allMastered, testRec, kindOf, continentName
   };
 })();
