@@ -995,13 +995,29 @@
   function fitShape(f, cid, kind, d3) {
     const it = itemForFeat(kind, f);
     if (cid === "eu") {
+      // Drop Svalbard, the Azores, and Russia east of the Urals so the default view sits tight on Europe.
       const base = mainland(f, d3);
-      if (it && it.id === "643") return clipLon(base, 60, d3);
-      return base;
+      const west = (it && it.id === "643") ? clipLon(base, 52, d3) : base;
+      return clipToLonLat(west, [-25, 34, 52, 72], d3);
     }
-    if (cid === "na") return clipToLonLat(f, [-180, 7, -50, 72], d3);
+    if (cid === "na") {
+      // Mainland Canada and the U.S., Mexico, Central America, and the Caribbean — not Alaska or the Arctic.
+      return clipToLonLat(f, [-131, 7, -51, 60], d3);
+    }
     if (cid === "oc") return f;
     if (cid === "us") return f;
+    if (cid === "sa") {
+      // Drop far Pacific islands (Easter Island, Galápagos) that stretch the default view.
+      return clipToLonLat(mainland(f, d3), [-82, -56, -32, 13], d3);
+    }
+    if (cid === "af") {
+      // Keep nearby islands (Cabo Verde, Madagascar, Seychelles) but drop far southern outliers.
+      return clipToLonLat(mainland(f, d3), [-26, -36, 64, 38], d3);
+    }
+    if (cid === "as") {
+      // Keep the continent through Japan and Indonesia; drop far Pacific scraps.
+      return clipToLonLat(mainland(f, d3), [25, -12, 150, 78], d3);
+    }
     return mainland(f, d3);
   }
 
@@ -1207,13 +1223,14 @@
       if (!fitSet.length) fitSet = all;
     }
     const cid = opts.continent || null;
-    let pad = 16;
+    let pad = 8;
     if (labeled) {
-      pad = 56;
-      if (cid === "oc") pad = 62;
-      if (cid === "na") pad = 58;
-      if (cid === "us") pad = 48;
-      if (cid === "eu" || cid === "as" || cid === "af") pad = 58;
+      // Modest margin for leader-line callouts; keep the land itself as large as possible.
+      pad = 28;
+      if (cid === "oc") pad = 34;
+      if (cid === "na") pad = 30;
+      if (cid === "us") pad = 24;
+      if (cid === "eu" || cid === "as" || cid === "af") pad = 28;
     }
     if (cid === "oc" && proj.rotate) proj.rotate([-155, 0]);
     const fitFC = {
