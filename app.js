@@ -438,7 +438,7 @@
     showQuiz(lesson, session);
   }
   else if (shot === "geo-step" || shot === "step") { if (window.Geo) window.Geo.open({ shot: "step", id: params.get("id") || "250" }); }
-  else if (shot === "geo-study" || shot === "study") { if (window.Geo) window.Geo.open({ shot: "study", cid: params.get("cid") || "eu" }); }
+  else if (shot === "geo-study" || shot === "study") { if (window.Geo) window.Geo.open({ shot: "study", cid: params.get("cid") || "eu", flash: params.get("flash") || params.get("id") }); }
   else if (shot === "geo-test" || shot === "test") { if (window.Geo) window.Geo.open({ shot: "test", cid: params.get("cid") || "eu", id: params.get("id") || "250" }); }
   else if (shot === "mystery") { if (window.Mystery) window.Mystery.open({ shot: "board", unlock: ["intro"] }); }
   else if (shot === "mystery-clue") { if (window.Mystery) window.Mystery.open({ shot: "clue", clue: "intro", unlock: ["intro","eu-1","eu-2"] }); }

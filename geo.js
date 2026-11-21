@@ -399,7 +399,7 @@
   function open(opts) {
     setTab("geo");
     const shot = opts && opts.shot;
-    if (shot === "map" || shot === "study") return startStudy(opts.cid || "eu", { shot: true });
+    if (shot === "map" || shot === "study") return startStudy(opts.cid || "eu", { shot: true, flash: opts.flash });
     if (shot === "us") return startStudy("us", { shot: true });
     if (shot === "test") return startRegionTest(opts.cid || "eu", { shot: true, preview: opts.id || "250" });
     if (shot === "step") {
@@ -477,7 +477,7 @@
       ${nav("")}
       <p class="kicker">${esc(title)} · Study map</p>
       <h1 style="font-size:clamp(2rem,6.5vw,3.6rem);margin:0 0 .35rem">${esc(title)}${master ? ` <span class="done-seal">Mastered</span>` : ""}</h1>
-      <p class="muted" style="margin-top:0">This is a large labeled map of all ${nItems} ${kind === "us" ? "states" : "countries"} in ${esc(title)}. Study it and try to memorize the names. Tiny places have a leader line or callout. Use + and − to zoom, and Fit to return to this view. Then take the test — you can retake until you score 100%.</p>
+      <p class="muted" style="margin-top:0">This is a large labeled map of all ${nItems} ${kind === "us" ? "states" : "countries"} in ${esc(title)}. Study it and try to memorize the names. Tiny places have a leader line or callout. Tap a name or a shape to see that place light up. Use + and − to zoom, and Fit to return to this view. Then take the test — you can retake until you score 100%.</p>
       <p class="muted">${esc(testLine(cid))}</p>
       <div class="map-frame study" id="map"></div>
       <div class="actions" style="margin-top:.9rem">
@@ -488,7 +488,7 @@
     $("#h").onclick = hub;
     if ($("#test")) $("#test").onclick = () => startRegionTest(cid, resumeTest ? { resume: true } : {});
     if ($("#steps")) $("#steps").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); regionHome(cid); };
-    new MapView($("#map"), { kind, topo, continent: cid, labels: true });
+    new MapView($("#map"), { kind, topo, continent: cid, labels: true, flash: extra && extra.flash });
   }
 
   function regionHome(cid) {
@@ -1053,13 +1053,27 @@
       if (box.x < 2 || box.y < 2 || box.x + box.w > W - 2 || box.y + box.h > H - 2) return false;
       return !placed.some(o => boxesOverlap(box, o, 3));
     }
-    function addText(lines, x, y, anchor, fs) {
+    function addText(lines, x, y, anchor, fs, id, tw, th) {
+      const a = anchor || "middle";
+      const left = a === "start" ? x : (a === "end" ? x - tw : x - tw / 2);
+      const top = y - fs * 0.9;
+      if (id) {
+        const hit = document.createElementNS(NS, "rect");
+        hit.setAttribute("class", "geo-label-hit");
+        hit.setAttribute("x", left - 3);
+        hit.setAttribute("y", top - 3);
+        hit.setAttribute("width", tw + 6);
+        hit.setAttribute("height", th + 6);
+        hit.dataset.id = id;
+        layer.appendChild(hit);
+      }
       const el = document.createElementNS(NS, "text");
       el.setAttribute("class", "geo-label");
       el.setAttribute("x", x);
       el.setAttribute("y", y);
-      el.setAttribute("text-anchor", anchor || "middle");
+      el.setAttribute("text-anchor", a);
       el.setAttribute("font-size", fs);
+      if (id) el.dataset.id = id;
       if (lines.length === 1) {
         el.textContent = lines[0];
       } else {
@@ -1067,6 +1081,7 @@
           const ts = document.createElementNS(NS, "tspan");
           ts.setAttribute("x", x);
           ts.setAttribute("dy", i === 0 ? "0" : String(fs * 1.12));
+          ts.setAttribute("pointer-events", "none");
           ts.textContent = ln;
           el.appendChild(ts);
         });
@@ -1092,7 +1107,7 @@
       const roomy = e.bw > e.tw + 10 && e.bh > e.th + 8 && e.area > 700;
       const box = { x: e.cx - e.tw / 2, y: e.cy - e.th / 2 + 3, w: e.tw, h: e.th };
       if (roomy && fits(box)) {
-        addText(e.lines, e.cx, e.cy + fs * 0.35, "middle", fs);
+        addText(e.lines, e.cx, e.cy + fs * 0.35, "middle", fs, e.id, e.tw, e.th);
         placed.push(box);
         e.done = true;
       } else leftover.push(e);
@@ -1127,7 +1142,7 @@
         const edgeX = found.right ? found.box.x : found.box.x + found.box.w;
         const edgeY = found.box.y + found.box.h * 0.55;
         addLeader(e.cx, e.cy, edgeX, edgeY);
-        addText(e.lines, found.right ? found.box.x : found.box.x + found.box.w, found.box.y + e.fs * 0.85, found.anchor, e.fs);
+        addText(e.lines, found.right ? found.box.x : found.box.x + found.box.w, found.box.y + e.fs * 0.85, found.anchor, e.fs, e.id, e.tw, e.th);
         placed.push(found.box);
         e.done = true;
       } else still.push(e);
@@ -1158,7 +1173,7 @@
         const ty = box.y + e.fs * 0.85;
         const edgeX = side === "left" ? box.x + box.w : box.x;
         addLeader(e.cx, e.cy, edgeX, box.y + box.h * 0.55);
-        addText(e.lines, tx, ty, anchor, e.fs);
+        addText(e.lines, tx, ty, anchor, e.fs, e.id, e.tw, e.th);
         placed.push(box);
         y = box.y + box.h + 3;
         e.done = true;
@@ -1299,9 +1314,61 @@
         labelEntries.push({ id: it.id, name: it.name, cx, cy, bw, bh, area: Math.max(0, bw * bh) });
       });
       placeMapLabels(g, labelEntries, W, H);
+      this.anchors = {};
+      labelEntries.forEach(e => { this.anchors[e.id] = e; });
     }
 
-    const tap = id => { if (!self.locked && id) self.onTap(id); };
+    const reducedMotion = () => !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    this.clearFlash = () => {
+      if (this._flashT) { clearTimeout(this._flashT); this._flashT = null; }
+      g.querySelectorAll(".ping").forEach(el => {
+        el.classList.remove("ping");
+        el.style.removeProperty("--geo-ping-scale");
+      });
+      g.querySelectorAll(".geo-ping-ring").forEach(el => el.remove());
+    };
+    this.flash = id => {
+      if (!labeled || !id) return;
+      this.clearFlash();
+      const anch = (this.anchors && this.anchors[id]) || null;
+      const pingScale = anch && anch.area > 9000 ? "1.03" : (anch && anch.area < 800 ? "1.12" : "1.06");
+      const origin = anch && Number.isFinite(anch.cx) ? `${anch.cx}px ${anch.cy}px` : "center";
+      (this.paths[id] || []).forEach(el => {
+        el.style.setProperty("--geo-ping-scale", pingScale);
+        el.style.transformOrigin = origin;
+        el.classList.add("ping");
+        void el.getBoundingClientRect();
+      });
+      g.querySelectorAll(".geo-label, .geo-label-hit, path.geo-leader, circle.hit").forEach(el => {
+        if (el.dataset.id === id) el.classList.add("ping");
+      });
+      const small = !!(anch && (anch.area < 800 || anch.bw < 28 || anch.bh < 28));
+      if (small && anch && Number.isFinite(anch.cx)) {
+        const unit = this.vb.w / (frame.clientWidth || W);
+        const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        ring.setAttribute("class", "geo-ping-ring");
+        ring.setAttribute("cx", anch.cx);
+        ring.setAttribute("cy", anch.cy);
+        ring.style.setProperty("--r0", (10 * unit) + "px");
+        ring.style.setProperty("--r1", (40 * unit) + "px");
+        if (reducedMotion()) {
+          ring.setAttribute("r", 24 * unit);
+          ring.classList.add("static");
+        }
+        g.appendChild(ring);
+      }
+      const ms = reducedMotion() ? 1600 : 1500;
+      this._flashT = setTimeout(() => this.clearFlash(), ms);
+    };
+
+    const tap = id => {
+      if (self.locked || !id) return;
+      if (labeled) self.flash(id);
+      self.onTap(id);
+    };
+    if (labeled && opts.flash) {
+      setTimeout(() => this.flash(String(opts.flash)), 60);
+    }
     g.addEventListener("click", e => {
       const t = e.target.closest("[data-id]");
       if (t && t.dataset.id) { e.stopPropagation(); tap(t.dataset.id); }

@@ -313,11 +313,49 @@ input[type=file]{display:none}
 text.geo-label{
   font-family:var(--font-body);font-weight:800;
   fill:var(--ink);stroke:#FFF8EB;stroke-width:4.2px;stroke-linejoin:round;
-  paint-order:stroke fill;pointer-events:none;
+  paint-order:stroke fill;pointer-events:auto;cursor:pointer;
 }
+rect.geo-label-hit{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
 path.geo-leader{
   stroke:var(--ink);stroke-width:1;fill:none;opacity:.72;
   pointer-events:none;vector-effect:non-scaling-stroke;
+}
+path.geo.ping,circle.hit.ping{
+  fill:var(--peach);stroke:var(--tangerine);
+  transform-box:view-box;transform-origin:center;
+  animation:geo-shape-ping .45s ease-in-out 3;
+}
+@keyframes geo-shape-ping{
+  0%,100%{fill:var(--peach);stroke:var(--tangerine);stroke-width:2.4px;transform:scale(1)}
+  50%{fill:var(--tangerine);stroke:var(--tangerine-dark);stroke-width:4.5px;transform:scale(var(--geo-ping-scale,1.06))}
+}
+text.geo-label.ping{
+  fill:var(--tangerine-dark);
+  animation:geo-label-ping .45s ease-in-out 3;
+}
+@keyframes geo-label-ping{
+  0%,100%{fill:var(--tangerine-dark);stroke:#FFF8EB}
+  50%{fill:var(--tangerine);stroke:var(--yellow)}
+}
+path.geo-leader.ping{stroke:var(--tangerine);stroke-width:2;opacity:1}
+circle.geo-ping-ring{
+  fill:none;stroke:var(--tangerine);stroke-width:3px;opacity:.95;
+  pointer-events:none;vector-effect:non-scaling-stroke;
+  animation:geo-ring-ping .45s ease-out 3;
+  r:var(--r0, 10px);
+}
+circle.geo-ping-ring.static{animation:none;stroke:var(--tangerine-dark);opacity:1}
+@keyframes geo-ring-ping{
+  0%{r:var(--r0, 10px);opacity:1}
+  100%{r:var(--r1, 40px);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  path.geo.ping,circle.hit.ping{
+    animation:none;transform:none;
+    fill:var(--peach);stroke:var(--tangerine);stroke-width:3.2px;
+  }
+  text.geo-label.ping{animation:none;fill:var(--tangerine-dark)}
+  circle.geo-ping-ring{animation:none;opacity:1;stroke:var(--tangerine-dark)}
 }
 .geo-poster.mastered{background:var(--ok-bg);box-shadow:6px 6px 0 #D4A534}
 

@@ -199,6 +199,9 @@ assert.ok(geoSrc.includes("const ZMAX = 7") && geoSrc.includes("function clampVi
 assert.ok(/Fit map to the region/.test(geoSrc) && /id="zRst"/.test(geoSrc), "Fit button");
 assert.ok(/Take the test/.test(geoSrc) && /path\.geo\.test|class="test"/.test(css + geoSrc), "region tests");
 assert.ok(/function startStudy/.test(geoSrc) && /function placeMapLabels/.test(geoSrc) && /geo-label/.test(css), "labeled study maps");
+assert.ok(/this\.flash/.test(geoSrc) && /geo-ping-ring/.test(css) && /geo-label-hit/.test(css + geoSrc), "click-to-find animation on study maps");
+assert.ok(/prefers-reduced-motion/.test(css), "study map find animation respects reduced motion");
+
 assert.ok(geoSrc.includes("[-131, 7, -51, 60]"), "NA default view crops Alaska and the Arctic");
 assert.ok(/pad = 8/.test(geoSrc) && /pad = 28/.test(geoSrc), "tighter default map padding");
 
